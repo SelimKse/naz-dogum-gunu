@@ -21,8 +21,8 @@ const Surpriz = () => {
   const isSpecialDate =
     currentDate.toDateString() === targetDate.toDateString();
   const videoSrc = isSpecialDate
-    ? "/src/assets/video.mp4"
-    : "/src/assets/intro.mp4";
+    ? "/video.mp4"
+    : "/intro.mp4";
 
   const handleReveal = () => {
     setIsRevealed(true);
