@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import timelineData from "../assets/timeline.json";
+import timelineData from "/assets/timeline.json";
 import Modal from "../components/Modal";
 
 const Admin = () => {
