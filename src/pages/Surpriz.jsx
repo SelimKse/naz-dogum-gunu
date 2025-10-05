@@ -22,7 +22,7 @@ const Surpriz = () => {
     currentDate.toDateString() === targetDate.toDateString();
   const videoSrc = isSpecialDate
     ? "/video.mp4"
-    : "/intro.mp4";
+    : "https://github.com/SelimKse/naz-dogum-gunu/blob/main/src/assets/intro.mp4";
 
   const handleReveal = () => {
     setIsRevealed(true);
