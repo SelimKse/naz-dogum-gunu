@@ -456,7 +456,7 @@ const Surpriz = () => {
 
               {/* Video overlay effects - Video container dışında */}
               <motion.div
-                className="absolute top-20 right-24 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold z-50"
+                className="absolute top-12 right-24 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold z-50"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.5 }}
@@ -465,7 +465,7 @@ const Surpriz = () => {
               </motion.div>
 
               <motion.div
-                className="absolute top-28 right-24 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold z-50"
+                className="absolute top-20 right-24 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold z-50"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 2 }}
