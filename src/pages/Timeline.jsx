@@ -5,12 +5,10 @@ const Timeline = () => {
   const [timelineEvents, setTimelineEvents] = useState([]);
 
   useEffect(() => {
-    // Public klasöründeki JSON dosyasını runtime'da fetch ile yükle.
-    // Vite build sırasında /assets/timeline.json şeklindeki import'lar
-    // bazen Rollup tarafından çözülmeye çalışılır; bunun yerine fetch kullanıyoruz.
-    fetch('/assets/timeline.json')
+    fetch("/assets/timeline.json")
       .then((res) => {
-        if (!res.ok) throw new Error('Timeline JSON yüklenemedi: ' + res.status);
+        if (!res.ok)
+          throw new Error("Timeline JSON yüklenemedi: " + res.status);
         return res.json();
       })
       .then((data) => setTimelineEvents(data))

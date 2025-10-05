@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import timelineData from "/assets/timeline.json";
 import Modal from "../components/Modal";
 
 const Admin = () => {
@@ -111,7 +110,16 @@ const Admin = () => {
         setTimelineEvents(data);
       } catch (error) {
         console.error("Timeline yükleme hatası:", error);
-        setTimelineEvents(timelineData);
+        try {
+          const res = await fetch("/assets/timeline.json");
+          if (!res.ok)
+            throw new Error("Public timeline.json yüklenemedi: " + res.status);
+          const data = await res.json();
+          setTimelineEvents(data);
+        } catch (fetchErr) {
+          console.error("Public timeline.json yüklenemedi:", fetchErr);
+          setTimelineEvents([]);
+        }
       }
     };
 
@@ -414,42 +422,42 @@ const Admin = () => {
           onConfirm={modal.onConfirm}
         />
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 flex items-center justify-center p-4">
-        <motion.div
-          className="bg-gray-900 rounded-2xl p-8 shadow-xl shadow-purple-500/20 max-w-md w-full border-2 border-purple-500/30"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="text-center mb-6">
-            <span className="text-4xl mb-4 block">🔐</span>
-            <h2 className="text-2xl font-bold text-purple-400 mb-2">
-              Admin Girişi
-            </h2>
-            <p className="text-gray-400">
-              Yönetim paneline erişim için şifre gerekli
-            </p>
-          </div>
+          <motion.div
+            className="bg-gray-900 rounded-2xl p-8 shadow-xl shadow-purple-500/20 max-w-md w-full border-2 border-purple-500/30"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="text-center mb-6">
+              <span className="text-4xl mb-4 block">🔐</span>
+              <h2 className="text-2xl font-bold text-purple-400 mb-2">
+                Admin Girişi
+              </h2>
+              <p className="text-gray-400">
+                Yönetim paneline erişim için şifre gerekli
+              </p>
+            </div>
 
-          <div className="space-y-4">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Şifre giriniz..."
-              className="w-full px-4 py-3 bg-gray-800 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500"
-              onKeyPress={(e) => e.key === "Enter" && handleLogin()}
-            />
+            <div className="space-y-4">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Şifre giriniz..."
+                className="w-full px-4 py-3 bg-gray-800 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500"
+                onKeyPress={(e) => e.key === "Enter" && handleLogin()}
+              />
 
-            <motion.button
-              onClick={handleLogin}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg shadow-purple-500/50"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              Giriş Yap
-            </motion.button>
-          </div>
-        </motion.div>
+              <motion.button
+                onClick={handleLogin}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg shadow-purple-500/50"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Giriş Yap
+              </motion.button>
+            </div>
+          </motion.div>
         </div>
       </>
     );
