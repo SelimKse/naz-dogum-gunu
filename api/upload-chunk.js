@@ -31,12 +31,25 @@ export default async function handler(req, res) {
   }
 
   try {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    
+    if (!token) {
+      console.error("❌ BLOB_READ_WRITE_TOKEN bulunamadı!");
+      return res.status(500).json({ 
+        error: "BLOB_READ_WRITE_TOKEN environment variable yapılandırılmamış" 
+      });
+    }
+
+    console.log("🔑 Token bulundu, handleUpload başlıyor...");
+
     // Vercel Blob'un client upload sistemi - 1GB'a kadar destekler
     const jsonResponse = await handleUpload({
       request: req,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      body: req,
+      token: token,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
-        console.log("📝 Upload request:", pathname);
+        console.log("📝 Upload request pathname:", pathname);
+        console.log("📝 Client payload:", clientPayload);
 
         // pathname dosya adı olacak (örn: "photo1.png", "intro.mp4")
         const filename = pathname;
@@ -57,6 +70,7 @@ export default async function handler(req, res) {
 
         // Tam path oluştur
         const blobPath = allowedFiles[filename] + filename;
+        console.log("🎯 Blob path:", blobPath);
 
         return {
           allowedContentTypes: [
@@ -75,9 +89,11 @@ export default async function handler(req, res) {
       },
     });
 
+    console.log("📤 Response:", jsonResponse);
     return res.status(200).json(jsonResponse);
   } catch (error) {
     console.error("❌ Upload error:", error);
+    console.error("❌ Error stack:", error.stack);
     return res.status(400).json({ error: error.message });
   }
 }
