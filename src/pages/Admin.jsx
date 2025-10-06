@@ -749,7 +749,7 @@ const Admin = () => {
                                       />
                                     </div>
                                     <p className="text-xs text-purple-400 text-center">
-                                      İndiriliyor... {uploadProgress[filename]}%
+                                      Yükleniyor... {uploadProgress[filename]}%
                                     </p>
                                   </div>
                                 ) : (
