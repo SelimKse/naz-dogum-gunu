@@ -103,7 +103,7 @@ const Home = () => {
                 }}
               >
                 <img
-                  src="/src/assets/stitch.png"
+                  src="/assets/images/icons/stitch.png"
                   alt="Stitch"
                   className="w-32 h-32 object-contain mx-auto"
                 />
@@ -188,7 +188,7 @@ const Home = () => {
               >
                 <div className="bg-gray-950 rounded-xl h-64 mb-4 overflow-hidden">
                   <img
-                    src="/src/assets/photo1.jpg"
+                    src="/assets/images/photos/photo1.jpg"
                     alt="Güzel Anılar"
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -222,7 +222,7 @@ const Home = () => {
               >
                 <div className="bg-gray-950 rounded-xl h-64 mb-4 overflow-hidden">
                   <img
-                    src="/src/assets/photo2.jpg"
+                    src="/assets/images/photos/photo2.jpg"
                     alt="Doğum Günü Kutlaması"
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -253,7 +253,7 @@ const Home = () => {
               >
                 <div className="bg-gray-950 rounded-xl h-64 mb-4 overflow-hidden">
                   <img
-                    src="/src/assets/photo3.jpg"
+                    src="/assets/images/photos/photo3.jpg"
                     alt="Özel Günler"
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -293,7 +293,7 @@ const Home = () => {
             >
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
                 <img
-                  src="/src/assets/stitch.png"
+                  src="/assets/images/icons/stitch.png"
                   alt="Stitch"
                   className="w-full h-full object-contain rounded-lg"
                   onError={(e) => {
@@ -311,7 +311,7 @@ const Home = () => {
             >
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
                 <img
-                  src="/src/assets/lilo.png"
+                  src="/assets/images/icons/lilo.png"
                   alt="Lilo"
                   className="w-full h-full object-contain rounded-lg"
                   onError={(e) => {
@@ -329,7 +329,7 @@ const Home = () => {
             >
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
                 <img
-                  src="/src/assets/hawaii.png"
+                  src="/assets/images/icons/hawaii.png"
                   alt="Hawaii"
                   className="w-full h-full object-contain rounded-lg"
                   onError={(e) => {
@@ -347,7 +347,7 @@ const Home = () => {
             >
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
                 <img
-                  src="/src/assets/ohana.png"
+                  src="/assets/images/icons/ohana.png"
                   alt="Ohana"
                   className="w-full h-full object-contain rounded-lg"
                   onError={(e) => {

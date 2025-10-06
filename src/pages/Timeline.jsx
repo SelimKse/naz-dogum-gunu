@@ -5,7 +5,7 @@ const Timeline = () => {
   const [timelineEvents, setTimelineEvents] = useState([]);
 
   useEffect(() => {
-    fetch("/assets/timeline.json")
+    fetch("/assets/data/timeline.json")
       .then((res) => {
         if (!res.ok)
           throw new Error("Timeline JSON yüklenemedi: " + res.status);

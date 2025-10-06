@@ -65,7 +65,7 @@ const Hediyen = () => {
   const handleDownloadPDF = () => {
     // PDF dosyasını indir
     const link = document.createElement("a");
-    link.href = "/src/assets/nazin-kitabi.pdf";
+    link.href = "/assets/documents/nazin-kitabi.pdf";
     link.download = "Nazin-Kitabi.pdf";
     document.body.appendChild(link);
     link.click();

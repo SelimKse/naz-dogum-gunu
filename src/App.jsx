@@ -18,33 +18,98 @@ import { motion, AnimatePresence } from "framer-motion";
 // Merkezi Koruma Sistemi Component
 const ProtectionWrapper = ({ children, pageName }) => {
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // LocalStorage'dan koruma ayarlarını al
-    const protectionEnabled =
-      localStorage.getItem("siteProtectionEnabled") !== "false";
-    const pageProtected =
-      localStorage.getItem(`page_${pageName}_protected`) !== "false";
-    const targetDateStr =
-      localStorage.getItem("siteTargetDate") || "2026-04-21";
+    const checkProtection = async () => {
+      try {
+        // Backend API'den ayarları çek
+        const response = await fetch("http://localhost:3001/api/protection-settings");
+        
+        if (!response.ok) {
+          throw new Error("Ayarlar yüklenemedi");
+        }
 
-    // Koruma kapalıysa veya sayfa korumasız ise kontrol yapma
-    if (!protectionEnabled || !pageProtected) {
-      setIsBlocked(false);
-      return;
-    }
+        const settings = await response.json();
+        
+        // Koruma kapalıysa veya sayfa korumasız ise kontrol yapma
+        if (!settings.protectionEnabled || !settings.pages[pageName]) {
+          setIsBlocked(false);
+          setIsLoading(false);
+          return;
+        }
 
-    const currentDate = new Date();
-    const targetDate = new Date(targetDateStr);
+        const currentDate = new Date();
+        const targetDate = new Date(settings.targetDate);
 
-    // Bugünün tarihi hedef tarihten önceyse engelle
-    if (currentDate < targetDate) {
-      setIsBlocked(true);
-    } else {
-      setIsBlocked(false);
-    }
+        // Bugünün tarihi hedef tarihten önceyse engelle
+        if (currentDate < targetDate) {
+          setIsBlocked(true);
+        } else {
+          setIsBlocked(false);
+        }
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Koruma ayarları yükleme hatası:", error);
+        
+        // Hata durumunda public JSON'dan okumayı dene (Vercel için)
+        try {
+          const fallbackResponse = await fetch("/assets/data/protection-settings.json");
+          if (!fallbackResponse.ok) throw new Error("Fallback JSON yüklenemedi");
+          
+          const settings = await fallbackResponse.json();
+          
+          if (!settings.protectionEnabled || !settings.pages[pageName]) {
+            setIsBlocked(false);
+            setIsLoading(false);
+            return;
+          }
+
+          const currentDate = new Date();
+          const targetDate = new Date(settings.targetDate);
+
+          if (currentDate < targetDate) {
+            setIsBlocked(true);
+          } else {
+            setIsBlocked(false);
+          }
+          
+          setIsLoading(false);
+        } catch (fallbackError) {
+          console.error("Fallback JSON yükleme hatası:", fallbackError);
+          // Tamamen başarısız olursa, default olarak erişime izin ver
+          setIsBlocked(false);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkProtection();
   }, [pageName]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-800">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+            className="text-6xl mb-4"
+          >
+            ⏳
+          </motion.div>
+          <p className="text-purple-300 text-lg">Yükleniyor...</p>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (isBlocked) {
     return (
@@ -100,7 +165,7 @@ const StepNavigation = () => {
 
   // Mevcut sayfanın kilitli olup olmadığını kontrol et
   React.useEffect(() => {
-    const checkPageProtection = () => {
+    const checkPageProtection = async () => {
       // Sayfa adını path'den çıkar
       const pageNameMap = {
         "/": "home",
@@ -117,22 +182,49 @@ const StepNavigation = () => {
         return;
       }
 
-      const protectionEnabled =
-        localStorage.getItem("siteProtectionEnabled") !== "false";
-      const pageProtected =
-        localStorage.getItem(`page_${pageName}_protected`) !== "false";
-      const targetDateStr =
-        localStorage.getItem("siteTargetDate") || "2026-04-21";
+      try {
+        // Backend API'den ayarları çek
+        const response = await fetch("http://localhost:3001/api/protection-settings");
+        
+        if (!response.ok) {
+          throw new Error("Ayarlar yüklenemedi");
+        }
 
-      if (!protectionEnabled || !pageProtected) {
-        setIsPageBlocked(false);
-        return;
+        const settings = await response.json();
+
+        if (!settings.protectionEnabled || !settings.pages[pageName]) {
+          setIsPageBlocked(false);
+          return;
+        }
+
+        const currentDate = new Date();
+        const targetDate = new Date(settings.targetDate);
+
+        setIsPageBlocked(currentDate < targetDate);
+      } catch (error) {
+        console.error("Koruma kontrolü hatası:", error);
+        
+        // Hata durumunda public JSON'dan okumayı dene
+        try {
+          const fallbackResponse = await fetch("/assets/data/protection-settings.json");
+          if (!fallbackResponse.ok) throw new Error("Fallback JSON yüklenemedi");
+          
+          const settings = await fallbackResponse.json();
+
+          if (!settings.protectionEnabled || !settings.pages[pageName]) {
+            setIsPageBlocked(false);
+            return;
+          }
+
+          const currentDate = new Date();
+          const targetDate = new Date(settings.targetDate);
+
+          setIsPageBlocked(currentDate < targetDate);
+        } catch (fallbackError) {
+          console.error("Fallback koruma kontrolü hatası:", fallbackError);
+          setIsPageBlocked(false);
+        }
       }
-
-      const currentDate = new Date();
-      const targetDate = new Date(targetDateStr);
-
-      setIsPageBlocked(currentDate < targetDate);
     };
 
     checkPageProtection();

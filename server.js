@@ -14,10 +14,47 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
+// Asset türüne göre yol belirleme fonksiyonu
+const getAssetPath = (filename) => {
+  const ext = path.extname(filename).toLowerCase();
+  
+  // Dosya adına göre özel mapping
+  if (filename.startsWith("photo")) {
+    return path.join("images", "photos", filename);
+  }
+  
+  if (["stitch.png", "lilo.png", "hawaii.png", "ohana.png"].includes(filename)) {
+    return path.join("images", "icons", filename);
+  }
+  
+  // Uzantıya göre klasör belirleme
+  if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+    return path.join("images", filename);
+  }
+  
+  if ([".mp4", ".mov", ".avi", ".webm"].includes(ext)) {
+    return path.join("videos", filename);
+  }
+  
+  if ([".pdf", ".doc", ".docx"].includes(ext)) {
+    return path.join("documents", filename);
+  }
+  
+  if ([".json", ".txt"].includes(ext)) {
+    return path.join("data", filename);
+  }
+  
+  // Default: root assets klasörü
+  return filename;
+};
+
 // Multer ayarları - dosya yükleme için
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, "src", "assets");
+    const targetName = req.body.targetName || file.originalname;
+    const relativePath = getAssetPath(targetName);
+    const uploadPath = path.join(__dirname, "public", "assets", path.dirname(relativePath));
+    
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -25,7 +62,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const targetName = req.body.targetName || file.originalname;
-    cb(null, targetName);
+    cb(null, path.basename(targetName));
   },
 });
 
@@ -35,13 +72,14 @@ const upload = multer({ storage: storage });
 app.get("/api/check-asset/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const filePath = path.join(__dirname, "src", "assets", filename);
+    const relativePath = getAssetPath(filename);
+    const filePath = path.join(__dirname, "public", "assets", relativePath);
     const exists = fs.existsSync(filePath);
 
     res.json({
       exists: exists,
       filename: filename,
-      path: exists ? `/src/assets/${filename}` : null,
+      path: exists ? `/assets/${relativePath.replace(/\\/g, "/")}` : null,
     });
   } catch (error) {
     console.error("Asset kontrol hatası:", error);
@@ -56,11 +94,14 @@ app.post("/api/upload-asset", upload.single("file"), (req, res) => {
       return res.status(400).json({ error: "Dosya yüklenmedi" });
     }
 
+    const targetName = req.body.targetName || req.file.originalname;
+    const relativePath = getAssetPath(targetName);
+    
     res.json({
       success: true,
       message: "Dosya başarıyla yüklendi",
       filename: req.file.filename,
-      path: `/src/assets/${req.file.filename}`,
+      path: `/assets/${relativePath.replace(/\\/g, "/")}`,
     });
   } catch (error) {
     console.error("Dosya yükleme hatası:", error);
@@ -72,7 +113,8 @@ app.post("/api/upload-asset", upload.single("file"), (req, res) => {
 app.delete("/api/delete-asset/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const filePath = path.join(__dirname, "src", "assets", filename);
+    const relativePath = getAssetPath(filename);
+    const filePath = path.join(__dirname, "public", "assets", relativePath);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "Dosya bulunamadı" });
@@ -94,7 +136,7 @@ app.delete("/api/delete-asset/:filename", (req, res) => {
 // Timeline JSON okuma endpoint'i
 app.get("/api/timeline", (req, res) => {
   try {
-    const filePath = path.join(__dirname, "src", "assets", "timeline.json");
+    const filePath = path.join(__dirname, "public", "assets", "data", "timeline.json");
 
     if (!fs.existsSync(filePath)) {
       return res.json([]);
@@ -117,7 +159,7 @@ app.post("/api/timeline", (req, res) => {
       return res.status(400).json({ error: "Geçersiz veri formatı" });
     }
 
-    const filePath = path.join(__dirname, "src", "assets", "timeline.json");
+    const filePath = path.join(__dirname, "public", "assets", "data", "timeline.json");
     fs.writeFileSync(filePath, JSON.stringify(events, null, 2), "utf8");
 
     res.json({
@@ -141,7 +183,7 @@ app.post("/api/save-feedback", (req, res) => {
     }
 
     // gelennot.txt dosyasının yolu
-    const filePath = path.join(__dirname, "src", "assets", "gelennot.txt");
+    const filePath = path.join(__dirname, "public", "assets", "data", "gelennot.txt");
 
     // Dosyayı üzerine yaz (varsa silinir, yoksa oluşturulur)
     fs.writeFileSync(filePath, feedback.trim(), "utf8");
@@ -150,6 +192,79 @@ app.post("/api/save-feedback", (req, res) => {
   } catch (error) {
     console.error("Dosya kaydetme hatası:", error);
     res.status(500).json({ error: "Dosya kaydedilemedi" });
+  }
+});
+
+// Protection Settings okuma endpoint'i
+app.get("/api/protection-settings", (req, res) => {
+  try {
+    const filePath = path.join(__dirname, "public", "assets", "data", "protection-settings.json");
+
+    if (!fs.existsSync(filePath)) {
+      // Dosya yoksa default ayarları döndür
+      return res.json({
+        protectionEnabled: true,
+        targetDate: "2026-04-21",
+        pages: {
+          home: false,
+          timeline: true,
+          ansiklopedi: true,
+          hayaller: true,
+          surpriz: true,
+          hediyen: true,
+        },
+      });
+    }
+
+    const data = fs.readFileSync(filePath, "utf8");
+    res.json(JSON.parse(data));
+  } catch (error) {
+    console.error("Protection settings okuma hatası:", error);
+    res.status(500).json({ error: "Ayarlar okunamadı" });
+  }
+});
+
+// Protection Settings güncelleme endpoint'i
+app.post("/api/protection-settings", (req, res) => {
+  try {
+    const { protectionEnabled, targetDate, pages } = req.body;
+
+    if (typeof protectionEnabled !== "boolean") {
+      return res.status(400).json({ error: "protectionEnabled boolean olmalı" });
+    }
+
+    if (!targetDate || typeof targetDate !== "string") {
+      return res.status(400).json({ error: "targetDate geçerli bir tarih olmalı" });
+    }
+
+    if (!pages || typeof pages !== "object") {
+      return res.status(400).json({ error: "pages object olmalı" });
+    }
+
+    const settings = {
+      protectionEnabled,
+      targetDate,
+      pages,
+    };
+
+    const filePath = path.join(__dirname, "public", "assets", "data", "protection-settings.json");
+    
+    // Dizin yoksa oluştur
+    const dirPath = path.dirname(filePath);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(settings, null, 2), "utf8");
+
+    res.json({
+      success: true,
+      message: "Koruma ayarları başarıyla güncellendi",
+      settings,
+    });
+  } catch (error) {
+    console.error("Protection settings güncelleme hatası:", error);
+    res.status(500).json({ error: "Ayarlar güncellenemedi" });
   }
 });
 

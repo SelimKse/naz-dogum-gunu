@@ -1,0 +1,12 @@
+{
+  "protectionEnabled": true,
+  "targetDate": "2026-04-21",
+  "pages": {
+    "home": false,
+    "timeline": true,
+    "ansiklopedi": true,
+    "hayaller": true,
+    "surpriz": true,
+    "hediyen": true
+  }
+}

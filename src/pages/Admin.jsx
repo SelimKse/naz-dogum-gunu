@@ -39,28 +39,41 @@ const Admin = () => {
     icon: "📅",
   });
 
-  // Site Koruma Ayarları
-  const [isProtectionEnabled, setIsProtectionEnabled] = useState(() => {
-    return localStorage.getItem("siteProtectionEnabled") !== "false"; // Default true
-  });
-  const [targetDate, setTargetDate] = useState(() => {
-    return localStorage.getItem("siteTargetDate") || "2026-04-21";
+  // Site Koruma Ayarları - Artık backend'den yükleniyor
+  const [isProtectionEnabled, setIsProtectionEnabled] = useState(true);
+  const [targetDate, setTargetDate] = useState("2026-04-21");
+
+  // Sayfa Bazlı Koruma Ayarları - Artık backend'den yükleniyor
+  const [pageProtections, setPageProtections] = useState({
+    home: false,
+    timeline: true,
+    ansiklopedi: true,
+    hayaller: true,
+    surpriz: true,
+    hediyen: true,
   });
 
-  // Sayfa Bazlı Koruma Ayarları
-  const [pageProtections, setPageProtections] = useState(() => {
-    const saved = localStorage.getItem("pageProtections");
-    return saved
-      ? JSON.parse(saved)
-      : {
-          home: false,
-          timeline: true,
-          ansiklopedi: true,
-          hayaller: true,
-          surpriz: true,
-          hediyen: true,
-        };
-  });
+  // Koruma ayarlarını backend'den yükle
+  useEffect(() => {
+    const loadProtectionSettings = async () => {
+      try {
+        const response = await fetch("http://localhost:3001/api/protection-settings");
+        if (!response.ok) throw new Error("Ayarlar yüklenemedi");
+        
+        const settings = await response.json();
+        setIsProtectionEnabled(settings.protectionEnabled);
+        setTargetDate(settings.targetDate);
+        setPageProtections(settings.pages);
+      } catch (error) {
+        console.error("Koruma ayarları yükleme hatası:", error);
+        // Hata durumunda default değerler kalacak
+      }
+    };
+
+    if (isAuthenticated) {
+      loadProtectionSettings();
+    }
+  }, [isAuthenticated]);
 
   // Asset'leri kontrol et
   useEffect(() => {
@@ -111,7 +124,7 @@ const Admin = () => {
       } catch (error) {
         console.error("Timeline yükleme hatası:", error);
         try {
-          const res = await fetch("/assets/timeline.json");
+          const res = await fetch("/assets/data/timeline.json");
           if (!res.ok)
             throw new Error("Public timeline.json yüklenemedi: " + res.status);
           const data = await res.json();
@@ -164,15 +177,46 @@ const Admin = () => {
     setPassword("");
   };
 
-  // Site Koruma Ayarlarını Kaydet
+  // Site Koruma Ayarlarını Backend'e Kaydet
+  const saveProtectionSettings = async (newSettings) => {
+    try {
+      const response = await fetch("http://localhost:3001/api/protection-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newSettings),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showModal("Başarılı", "Koruma ayarları kaydedildi!", "success");
+      } else {
+        showModal("Hata", `Kaydetme hatası: ${data.error}`, "error");
+      }
+    } catch (error) {
+      console.error("Koruma ayarları kaydetme hatası:", error);
+      showModal("Hata", "Ayarlar kaydedilemedi!", "error");
+    }
+  };
+
   const handleProtectionToggle = (enabled) => {
     setIsProtectionEnabled(enabled);
-    localStorage.setItem("siteProtectionEnabled", enabled.toString());
+    saveProtectionSettings({
+      protectionEnabled: enabled,
+      targetDate: targetDate,
+      pages: pageProtections,
+    });
   };
 
   const handleTargetDateChange = (date) => {
     setTargetDate(date);
-    localStorage.setItem("siteTargetDate", date);
+    saveProtectionSettings({
+      protectionEnabled: isProtectionEnabled,
+      targetDate: date,
+      pages: pageProtections,
+    });
   };
 
   const handlePageProtectionToggle = (page) => {
@@ -181,7 +225,11 @@ const Admin = () => {
       [page]: !pageProtections[page],
     };
     setPageProtections(newProtections);
-    localStorage.setItem("pageProtections", JSON.stringify(newProtections));
+    saveProtectionSettings({
+      protectionEnabled: isProtectionEnabled,
+      targetDate: targetDate,
+      pages: newProtections,
+    });
   };
 
   // Asset yükleme fonksiyonu
@@ -249,7 +297,7 @@ const Admin = () => {
   // Asset indirme fonksiyonu
   const handleAssetDownload = (filename) => {
     const link = document.createElement("a");
-    link.href = `/src/assets/${filename}`;
+    link.href = `/assets/${filename}`;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
@@ -542,7 +590,7 @@ const Admin = () => {
                         {assetStatus["photo1.png"] ? (
                           <>
                             <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: src/assets/photo1.png
+                              ✅ Mevcut: public/assets/photo1.png
                             </p>
                             <div className="flex gap-2">
                               <button
@@ -564,7 +612,7 @@ const Admin = () => {
                         ) : (
                           <>
                             <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: src/assets/photo1.png yükleyin
+                              ❌ Eksik: public/assets/photo1.png yükleyin
                             </p>
                             <input
                               type="file"
@@ -585,7 +633,7 @@ const Admin = () => {
                         {assetStatus["photo2.png"] ? (
                           <>
                             <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: src/assets/photo2.png
+                              ✅ Mevcut: public/assets/photo2.png
                             </p>
                             <div className="flex gap-2">
                               <button
@@ -607,7 +655,7 @@ const Admin = () => {
                         ) : (
                           <>
                             <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: src/assets/photo2.png yükleyin
+                              ❌ Eksik: public/assets/photo2.png yükleyin
                             </p>
                             <input
                               type="file"
@@ -629,7 +677,7 @@ const Admin = () => {
                         {assetStatus["photo3.png"] ? (
                           <>
                             <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: src/assets/photo3.png
+                              ✅ Mevcut: public/assets/photo3.png
                             </p>
                             <div className="flex gap-2">
                               <button
@@ -651,7 +699,7 @@ const Admin = () => {
                         ) : (
                           <>
                             <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: src/assets/photo3.png yükleyin
+                              ❌ Eksik: public/assets/photo3.png yükleyin
                             </p>
                             <input
                               type="file"
@@ -681,7 +729,7 @@ const Admin = () => {
                         {assetStatus["intro.mp4"] ? (
                           <>
                             <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: src/assets/intro.mp4
+                              ✅ Mevcut: public/assets/intro.mp4
                             </p>
                             <div className="flex gap-2">
                               <button
@@ -701,7 +749,7 @@ const Admin = () => {
                         ) : (
                           <>
                             <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: src/assets/intro.mp4 yükleyin
+                              ❌ Eksik: public/assets/intro.mp4 yükleyin
                             </p>
                             <input
                               type="file"
@@ -723,7 +771,7 @@ const Admin = () => {
                         {assetStatus["video.mp4"] ? (
                           <>
                             <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: src/assets/video.mp4
+                              ✅ Mevcut: public/assets/video.mp4
                             </p>
                             <div className="flex gap-2">
                               <button
@@ -743,7 +791,7 @@ const Admin = () => {
                         ) : (
                           <>
                             <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: src/assets/video.mp4 yükleyin
+                              ❌ Eksik: public/assets/video.mp4 yükleyin
                             </p>
                             <input
                               type="file"
@@ -771,7 +819,7 @@ const Admin = () => {
                       {assetStatus["nazin-kitabi.pdf"] ? (
                         <>
                           <p className="text-xs text-green-400 mb-2">
-                            ✅ Mevcut: src/assets/nazin-kitabi.pdf
+                            ✅ Mevcut: public/assets/nazin-kitabi.pdf
                           </p>
                           <div className="flex gap-2">
                             <button
@@ -795,7 +843,7 @@ const Admin = () => {
                       ) : (
                         <>
                           <p className="text-xs text-red-400 mb-2">
-                            ❌ Eksik: src/assets/nazin-kitabi.pdf yükleyin
+                            ❌ Eksik: public/assets/nazin-kitabi.pdf yükleyin
                           </p>
                           <input
                             type="file"
@@ -835,17 +883,8 @@ const Admin = () => {
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input
                               type="checkbox"
-                              defaultChecked={
-                                localStorage.getItem(
-                                  "siteProtectionEnabled"
-                                ) !== "false"
-                              }
-                              onChange={(e) => {
-                                localStorage.setItem(
-                                  "siteProtectionEnabled",
-                                  e.target.checked
-                                );
-                              }}
+                              checked={isProtectionEnabled}
+                              onChange={(e) => handleProtectionToggle(e.target.checked)}
                               className="sr-only peer"
                             />
                             <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div>
@@ -858,12 +897,8 @@ const Admin = () => {
                           </label>
                           <input
                             type="date"
-                            defaultValue={
-                              localStorage.getItem("targetDate") || "2026-04-21"
-                            }
-                            onChange={(e) =>
-                              localStorage.setItem("targetDate", e.target.value)
-                            }
+                            value={targetDate}
+                            onChange={(e) => handleTargetDateChange(e.target.value)}
                             className="w-full p-3 bg-gray-700 border-2 border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                           />
                           <p className="text-xs text-gray-400 mt-1">
@@ -903,17 +938,8 @@ const Admin = () => {
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  defaultChecked={
-                                    localStorage.getItem(
-                                      `page_${page.key}_protected`
-                                    ) !== "false"
-                                  }
-                                  onChange={(e) => {
-                                    localStorage.setItem(
-                                      `page_${page.key}_protected`,
-                                      e.target.checked
-                                    );
-                                  }}
+                                  checked={pageProtections[page.key]}
+                                  onChange={() => handlePageProtectionToggle(page.key)}
                                   className="sr-only peer"
                                 />
                                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
