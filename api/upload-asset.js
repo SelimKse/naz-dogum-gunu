@@ -1,40 +1,69 @@
-import multer from "multer";
 import fs from "fs";
 import path from "path";
 
 export const config = {
   api: {
-    bodyParser: false, // multer için gerekli
+    bodyParser: false, // Raw body parsing için
   },
 };
 
-// Multer storage konfigürasyonu
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // Geçici klasör
-    const tempDir = "/tmp";
-    cb(null, tempDir);
-  },
-  filename: function (req, file, cb) {
-    // Geçici dosya adı
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB limit
-});
-
-// Multer middleware'i promise'e çevir
-function runMiddleware(req, res, fn) {
+// Multipart form data parser (native implementation)
+function parseMultipartFormData(req) {
   return new Promise((resolve, reject) => {
-    fn(req, res, (result) => {
-      if (result instanceof Error) {
-        return reject(result);
-      }
-      return resolve(result);
+    const chunks = [];
+    
+    req.on('data', (chunk) => {
+      chunks.push(chunk);
     });
+    
+    req.on('end', () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const boundary = req.headers['content-type']?.split('boundary=')[1];
+        
+        if (!boundary) {
+          return reject(new Error('No boundary found'));
+        }
+        
+        const parts = buffer.toString('binary').split(`--${boundary}`);
+        const result = { fields: {}, files: {} };
+        
+        for (const part of parts) {
+          if (part.includes('Content-Disposition')) {
+            const nameMatch = part.match(/name="([^"]+)"/);
+            const filenameMatch = part.match(/filename="([^"]+)"/);
+            
+            if (nameMatch) {
+              const fieldName = nameMatch[1];
+              const contentStart = part.indexOf('\r\n\r\n') + 4;
+              const contentEnd = part.lastIndexOf('\r\n');
+              
+              if (filenameMatch) {
+                // File field
+                const fileContent = Buffer.from(
+                  part.substring(contentStart, contentEnd),
+                  'binary'
+                );
+                result.files[fieldName] = {
+                  filename: filenameMatch[1],
+                  data: fileContent
+                };
+              } else {
+                // Regular field
+                const fieldValue = part.substring(contentStart, contentEnd);
+                result.fields[fieldName] = fieldValue;
+              }
+            }
+          }
+        }
+        
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    
+    req.on('error', reject);
   });
 }
 
@@ -62,17 +91,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Multer ile dosyayı parse et
-    await runMiddleware(req, res, upload.single("file"));
+    console.log("📨 Upload request received");
+    console.log("📋 Content-Type:", req.headers['content-type']);
+    
+    // Parse multipart form data
+    const { fields, files } = await parseMultipartFormData(req);
+    
+    const filename = fields.filename;
+    const fileData = files.file;
 
-    const file = req.file;
-    const filename = req.body.filename;
+    console.log("� Filename:", filename);
+    console.log("� File data size:", fileData?.data?.length || 0);
 
-    console.log("📦 Gelen dosya:", file);
-    console.log("📝 Dosya adı:", filename);
-
-    if (!file || !filename) {
-      console.error("❌ Dosya veya filename eksik:", { file, filename });
+    if (!fileData || !filename) {
+      console.error("❌ Dosya veya filename eksik");
       res.status(400).json({ success: false, error: "Dosya veya dosya adı eksik" });
       return;
     }
@@ -89,8 +121,6 @@ export default async function handler(req, res) {
 
     if (!allowedFiles[filename]) {
       console.error("❌ Geçersiz dosya adı:", filename);
-      // Geçici dosyayı temizle
-      fs.unlinkSync(file.path);
       res.status(400).json({ success: false, error: "Geçersiz dosya adı" });
       return;
     }
@@ -108,11 +138,9 @@ export default async function handler(req, res) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
 
-    // Dosyayı hedef konuma taşı
-    console.log("🔄 Dosya kopyalanıyor:", file.path, "->", targetPath);
-    
-    fs.copyFileSync(file.path, targetPath);
-    fs.unlinkSync(file.path); // Geçici dosyayı sil
+    // Dosyayı kaydet
+    console.log("� Dosya kaydediliyor...");
+    fs.writeFileSync(targetPath, fileData.data);
 
     console.log(`✅ Dosya yüklendi: ${targetPath}`);
 
@@ -122,7 +150,10 @@ export default async function handler(req, res) {
       path: allowedFiles[filename] + filename,
     });
   } catch (error) {
-    console.error("Upload error:", error);
-    res.status(500).json({ success: false, error: "Dosya yüklenemedi: " + error.message });
+    console.error("❌ Upload error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Dosya yüklenemedi: " + error.message 
+    });
   }
 }
