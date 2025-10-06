@@ -24,8 +24,8 @@ const ProtectionWrapper = ({ children, pageName }) => {
   useEffect(() => {
     const checkProtection = async () => {
       try {
-        // Vercel için direkt public JSON'dan oku
-        const response = await fetch("/assets/data/protection-settings.json");
+        // MongoDB'den ayarları çek
+        const response = await fetch("/api/protection-settings");
         
         if (!response.ok) {
           throw new Error("Ayarlar yüklenemedi");
@@ -156,8 +156,8 @@ const StepNavigation = () => {
       }
 
       try {
-        // Vercel için direkt public JSON'dan oku
-        const response = await fetch("/assets/data/protection-settings.json");
+        // MongoDB'den ayarları çek
+        const response = await fetch("/api/protection-settings");
         
         if (!response.ok) {
           throw new Error("Ayarlar yüklenemedi");

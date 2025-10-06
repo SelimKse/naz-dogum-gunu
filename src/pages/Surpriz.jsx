@@ -556,13 +556,25 @@ const Surpriz = () => {
                   <motion.button
                     onClick={async () => {
                       if (feedback.trim().length >= 100) {
-                        // Feedback'i localStorage'a kaydet (Vercel için)
+                        // Feedback'i MongoDB'ye kaydet
                         try {
-                          localStorage.setItem("naz-feedback", feedback.trim());
-                          localStorage.setItem("naz-feedback-date", new Date().toISOString());
-                          console.log("✅ Feedback kaydedildi!");
+                          const response = await fetch("/api/feedback", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                              feedback: feedback.trim(),
+                            }),
+                          });
+
+                          if (response.ok) {
+                            console.log("✅ Feedback MongoDB'ye kaydedildi!");
+                          } else {
+                            console.error("❌ Feedback kaydedilemedi");
+                          }
                         } catch (error) {
-                          console.error("❌ Feedback kaydedilemedi:", error);
+                          console.error("❌ Server bağlantı hatası:", error);
                         }
 
                         // Development: Ana sayfaya dön

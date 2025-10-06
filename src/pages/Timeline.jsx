@@ -5,10 +5,10 @@ const Timeline = () => {
   const [timelineEvents, setTimelineEvents] = useState([]);
 
   useEffect(() => {
-    fetch("/assets/data/timeline.json")
+    fetch("/api/timeline")
       .then((res) => {
         if (!res.ok)
-          throw new Error("Timeline JSON yüklenemedi: " + res.status);
+          throw new Error("Timeline yüklenemedi: " + res.status);
         return res.json();
       })
       .then((data) => setTimelineEvents(data))
