@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useState, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -61,12 +61,44 @@ const Hediyen = () => {
   const componentRef = useRef();
   const [isBoxOpen, setIsBoxOpen] = React.useState(false);
   const [lidRotation, setLidRotation] = React.useState({ x: 0, y: 0 });
+  const [pdfUrl, setPdfUrl] = useState(null);
+
+  // PDF URL'ini Vercel Blob'dan al
+  useEffect(() => {
+    const fetchPdfUrl = async () => {
+      try {
+        const response = await fetch("/api/list-assets");
+        if (response.ok) {
+          const data = await response.json();
+          const url = data.assets["nazin-kitabi.pdf"];
+          if (url) {
+            setPdfUrl(url);
+            console.log("✅ PDF URL alındı:", url);
+          } else {
+            console.warn("⚠️ PDF Blob'da bulunamadı, fallback kullanılıyor");
+            setPdfUrl("/assets/documents/nazin-kitabi.pdf"); // Fallback
+          }
+        }
+      } catch (error) {
+        console.error("❌ PDF URL alınamadı:", error);
+        setPdfUrl("/assets/documents/nazin-kitabi.pdf"); // Fallback
+      }
+    };
+
+    fetchPdfUrl();
+  }, []);
 
   const handleDownloadPDF = () => {
-    // PDF dosyasını indir
+    if (!pdfUrl) {
+      console.error("PDF URL henüz yüklenmedi");
+      return;
+    }
+    
+    // PDF dosyasını indir (Blob URL'den)
     const link = document.createElement("a");
-    link.href = "/assets/documents/nazin-kitabi.pdf";
+    link.href = pdfUrl;
     link.download = "Nazin-Kitabi.pdf";
+    link.target = "_blank"; // Blob URL'ler için yeni tab
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

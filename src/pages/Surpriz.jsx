@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -11,6 +11,7 @@ const Surpriz = () => {
   const [feedback, setFeedback] = useState("");
   const [showError, setShowError] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(null);
 
   // Environment kontrolü
   const isDevelopment = import.meta.env.VITE_APP_ENV === "development";
@@ -20,9 +21,32 @@ const Surpriz = () => {
   const targetDate = new Date("2026-04-26");
   const isSpecialDate =
     currentDate.toDateString() === targetDate.toDateString();
-  const videoSrc = isSpecialDate
-    ? "/assets/videos/video.mp4"
-    : "/assets/videos/intro.mp4";
+  const videoFilename = isSpecialDate ? "video.mp4" : "intro.mp4";
+
+  // Video URL'ini Vercel Blob'dan al
+  useEffect(() => {
+    const fetchVideoUrl = async () => {
+      try {
+        const response = await fetch("/api/list-assets");
+        if (response.ok) {
+          const data = await response.json();
+          const url = data.assets[videoFilename];
+          if (url) {
+            setVideoUrl(url);
+            console.log(`✅ Video URL alındı (${videoFilename}):`, url);
+          } else {
+            console.warn(`⚠️ ${videoFilename} Blob'da bulunamadı, fallback kullanılıyor`);
+            setVideoUrl(`/assets/videos/${videoFilename}`); // Fallback
+          }
+        }
+      } catch (error) {
+        console.error("❌ Video URL alınamadı:", error);
+        setVideoUrl(`/assets/videos/${videoFilename}`); // Fallback
+      }
+    };
+
+    fetchVideoUrl();
+  }, [videoFilename]);
 
   const handleReveal = () => {
     setIsRevealed(true);
@@ -411,7 +435,7 @@ const Surpriz = () => {
                   controls={!isFullscreen} // Tam ekranda kontrol gizle
                   onEnded={() => !isSpecialDate && setVideoEnded(true)}
                 >
-                  <source src={videoSrc} type="video/mp4" />
+                  {videoUrl && <source src={videoUrl} type="video/mp4" />}
                   Tarayıcınız video oynatmayı desteklemiyor.
                 </video>
               </motion.div>
