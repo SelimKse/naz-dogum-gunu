@@ -88,16 +88,23 @@ const Admin = () => {
 
       const newStatus = {};
 
-      // Fiziksel dosyaları kontrol et
+      // Fiziksel dosyaları kontrol et - GET ile tam içerik iste
       await Promise.all(
         Object.entries(assetPaths).map(async ([filename, path]) => {  
           try {
             const response = await fetch(path, {
-              method: "HEAD",
+              method: "GET",
               cache: "no-cache",
             });
-            newStatus[filename] = response.ok;
-            console.log(`${response.ok ? "✅" : "❌"} ${filename}: ${path}`);
+            
+            // response.ok kontrolü yeterli değil - content-type'a da bak
+            const contentType = response.headers.get("content-type") || "";
+            const isHtml = contentType.includes("text/html");
+            
+            // Eğer HTML döndüyse (404 sayfası) dosya yok demektir
+            newStatus[filename] = response.ok && !isHtml;
+            
+            console.log(`${newStatus[filename] ? "✅" : "❌"} ${filename}: ${path} (${response.status}, ${contentType})`);
           } catch (error) {
             newStatus[filename] = false;
             console.log(`❌ ${filename}: Hata - ${error.message}`);

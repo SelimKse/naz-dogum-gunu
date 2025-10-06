@@ -13,6 +13,7 @@ import Hayaller from "./pages/Hayaller";
 import Surpriz from "./pages/Surpriz";
 import Hediyen from "./pages/Hediyen";
 import Admin from "./pages/Admin";
+import NotFound from "./pages/NotFound";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Merkezi Koruma Sistemi Component
@@ -380,6 +381,7 @@ function AppContent() {
             }
           />
           <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       <StepNavigation />
