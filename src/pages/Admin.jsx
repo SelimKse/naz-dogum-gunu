@@ -5,7 +5,6 @@ import Modal from "../components/Modal";
 const Admin = () => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    // LocalStorage'dan oturum kontrolü
     return localStorage.getItem("adminAuthenticated") === "true";
   });
   const [activeTab, setActiveTab] = useState("assets");
@@ -91,7 +90,7 @@ const Admin = () => {
 
       // Fiziksel dosyaları kontrol et
       await Promise.all(
-        Object.entries(assetPaths).map(async ([filename, path]) => {
+        Object.entries(assetPaths).map(async ([filename, path]) => {  
           try {
             const response = await fetch(path, {
               method: "HEAD",
@@ -586,9 +585,24 @@ const Admin = () => {
                 <div className="space-y-6">
                   {/* Genel Durum Özeti */}
                   <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-6 rounded-xl border-2 border-purple-500/50">
-                    <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                      <span>📊</span> Asset Durumu
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                        <span>📊</span> Asset Durumu
+                      </h3>
+                      <button
+                        onClick={() => {
+                          console.clear();
+                          console.log("🔍 MANUEL ASSET KONTROLÜ");
+                          console.log("Current assetStatus:", assetStatus);
+                          Object.entries(assetStatus).forEach(([name, status]) => {
+                            console.log(`${status ? "✅" : "❌"} ${name}`);
+                          });
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+                      >
+                        🔍 Console'u Kontrol Et
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-gray-800/50 p-4 rounded-lg text-center">
                         <div className="text-3xl mb-2">
