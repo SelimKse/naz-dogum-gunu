@@ -28,6 +28,12 @@ const Admin = () => {
     "nazin-kitabi.pdf": false,
   });
 
+  // Asset kontrol loading state
+  const [isCheckingAssets, setIsCheckingAssets] = useState(true);
+
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState({});
+
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [uploadedVideos, setUploadedVideos] = useState([]);
   const [timelineEvents, setTimelineEvents] = useState([]);
@@ -77,6 +83,7 @@ const Admin = () => {
   // Asset'leri kontrol et - Sadece fiziksel dosyalar
   useEffect(() => {
     const checkAssets = async () => {
+      setIsCheckingAssets(true);
       const assetPaths = {
         "photo1.png": "/assets/images/photos/photo1.png",
         "photo2.png": "/assets/images/photos/photo2.png",
@@ -113,6 +120,7 @@ const Admin = () => {
       );
 
       setAssetStatus(newStatus);
+      setIsCheckingAssets(false);
       console.log("📊 Fiziksel Asset Durumu:", newStatus);
     };
 
@@ -240,7 +248,7 @@ const Admin = () => {
   };
 
   // Asset yükleme fonksiyonu - Manuel indirme
-  const handleAssetUpload = (filename, event) => {
+  const handleAssetUpload = async (filename, event) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -256,21 +264,58 @@ const Admin = () => {
 
     const targetPath = pathMap[filename] || "public/assets/";
 
-    // Dosyayı indirme linki oluştur (doğru isimle)
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Progress başlat
+    setUploadProgress((prev) => ({ ...prev, [filename]: 0 }));
 
-    showModal(
-      "Manuel Yükleme",
-      `✅ ${filename} indirildi!\n\n📁 Bu dosyayı şu klasöre kopyala:\n${targetPath}\n\nDosya adı: ${filename}`,
-      "info"
-    );
+    // Simüle edilmiş upload progress (gerçek backend olsa XMLHttpRequest kullanılırdı)
+    const simulateProgress = setInterval(() => {
+      setUploadProgress((prev) => {
+        const current = prev[filename] || 0;
+        if (current >= 90) {
+          clearInterval(simulateProgress);
+          return prev;
+        }
+        return { ...prev, [filename]: current + 10 };
+      });
+    }, 100);
+
+    try {
+      // Dosyayı indirme linki oluştur (doğru isimle)
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Progress tamamla
+      setTimeout(() => {
+        setUploadProgress((prev) => ({ ...prev, [filename]: 100 }));
+        setTimeout(() => {
+          setUploadProgress((prev) => {
+            const newProgress = { ...prev };
+            delete newProgress[filename];
+            return newProgress;
+          });
+        }, 1000);
+      }, 200);
+
+      showModal(
+        "Manuel Yükleme",
+        `✅ ${filename} indirildi!\n\n📁 Bu dosyayı şu klasöre kopyala:\n${targetPath}\n\nDosya adı: ${filename}`,
+        "info"
+      );
+    } catch (error) {
+      clearInterval(simulateProgress);
+      setUploadProgress((prev) => {
+        const newProgress = { ...prev };
+        delete newProgress[filename];
+        return newProgress;
+      });
+      showModal("Hata", "Dosya indirilemedi!", "error");
+    }
   };
 
   // Asset silme fonksiyonu - Manuel silme talimatı
@@ -294,7 +339,7 @@ const Admin = () => {
     );
   };
 
-  // Asset indirme fonksiyonu - Fiziksel dosyadan indir
+  // Asset görüntüleme fonksiyonu - Yeni sekmede aç
   const handleAssetDownload = (filename) => {
     const pathMap = {
       "photo1.png": "/assets/images/photos/photo1.png",
@@ -305,12 +350,8 @@ const Admin = () => {
       "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
     };
 
-    const link = document.createElement("a");
-    link.href = pathMap[filename] || `/assets/${filename}`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Yeni sekmede aç
+    window.open(pathMap[filename] || `/assets/${filename}`, "_blank");
   };
 
   const handlePhotoUpload = (event) => {
@@ -595,6 +636,15 @@ const Admin = () => {
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-2xl font-bold text-white flex items-center gap-2">
                         <span>📊</span> Asset Durumu
+                        {isCheckingAssets && (
+                          <motion.span
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="text-xl"
+                          >
+                            ⏳
+                          </motion.span>
+                        )}
                       </h3>
                       <button
                         onClick={() => {
@@ -691,14 +741,12 @@ const Admin = () => {
                                   ✓ Dosya mevcut ve erişilebilir
                                 </div>
                                 <div className="flex gap-2">
-                                  <a
-                                    href={`/assets/images/photos/${filename}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
+                                  <button
+                                    onClick={() => handleAssetDownload(filename)}
+                                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                                   >
-                                    Görüntüle
-                                  </a>
+                                    👁️ Görüntüle
+                                  </button>
                                   <button
                                     onClick={() => handleAssetDelete(filename)}
                                     className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
@@ -712,14 +760,30 @@ const Admin = () => {
                                 <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
                                   ✗ Dosya bulunamadı
                                 </div>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) =>
-                                    handleAssetUpload(filename, e)
-                                  }
-                                  className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-purple-600 file:text-white file:cursor-pointer hover:file:bg-purple-700"
-                                />
+                                {uploadProgress[filename] !== undefined ? (
+                                  <div className="space-y-1">
+                                    <div className="w-full bg-gray-700 rounded-full h-2">
+                                      <motion.div
+                                        className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${uploadProgress[filename]}%` }}
+                                        transition={{ duration: 0.3 }}
+                                      />
+                                    </div>
+                                    <p className="text-xs text-purple-400 text-center">
+                                      İndiriliyor... {uploadProgress[filename]}%
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) =>
+                                      handleAssetUpload(filename, e)
+                                    }
+                                    className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-purple-600 file:text-white file:cursor-pointer hover:file:bg-purple-700"
+                                  />
+                                )}
                               </div>
                             )}
                           </motion.div>
@@ -774,9 +838,9 @@ const Admin = () => {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleAssetDownload(file)}
-                                  className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                                 >
-                                  📥 İndir
+                                  ▶️ Oynat
                                 </button>
                                 <button
                                   onClick={() => handleAssetDelete(file)}
@@ -791,12 +855,28 @@ const Admin = () => {
                               <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
                                 ✗ Video bulunamadı
                               </div>
-                              <input
-                                type="file"
-                                accept="video/*"
-                                onChange={(e) => handleAssetUpload(file, e)}
-                                className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer hover:file:bg-blue-700"
-                              />
+                              {uploadProgress[file] !== undefined ? (
+                                <div className="space-y-1">
+                                  <div className="w-full bg-gray-700 rounded-full h-2">
+                                    <motion.div
+                                      className="bg-gradient-to-r from-blue-600 to-cyan-600 h-2 rounded-full"
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${uploadProgress[file]}%` }}
+                                      transition={{ duration: 0.3 }}
+                                    />
+                                  </div>
+                                  <p className="text-xs text-blue-400 text-center">
+                                    İndiriliyor... {uploadProgress[file]}%
+                                  </p>
+                                </div>
+                              ) : (
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  onChange={(e) => handleAssetUpload(file, e)}
+                                  className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer hover:file:bg-blue-700"
+                                />
+                              )}
                             </div>
                           )}
                         </motion.div>
@@ -847,9 +927,9 @@ const Admin = () => {
                               onClick={() =>
                                 handleAssetDownload("nazin-kitabi.pdf")
                               }
-                              className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                             >
-                              � Aç
+                              📄 Aç
                             </button>
                             <button
                               onClick={() =>
@@ -866,14 +946,30 @@ const Admin = () => {
                           <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
                             ✗ PDF dosyası bulunamadı
                           </div>
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={(e) =>
-                              handleAssetUpload("nazin-kitabi.pdf", e)
-                            }
-                            className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer hover:file:bg-orange-700"
-                          />
+                          {uploadProgress["nazin-kitabi.pdf"] !== undefined ? (
+                            <div className="space-y-1">
+                              <div className="w-full bg-gray-700 rounded-full h-2">
+                                <motion.div
+                                  className="bg-gradient-to-r from-orange-600 to-red-600 h-2 rounded-full"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${uploadProgress["nazin-kitabi.pdf"]}%` }}
+                                  transition={{ duration: 0.3 }}
+                                />
+                              </div>
+                              <p className="text-xs text-orange-400 text-center">
+                                İndiriliyor... {uploadProgress["nazin-kitabi.pdf"]}%
+                              </p>
+                            </div>
+                          ) : (
+                            <input
+                              type="file"
+                              accept="application/pdf"
+                              onChange={(e) =>
+                                handleAssetUpload("nazin-kitabi.pdf", e)
+                              }
+                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer hover:file:bg-orange-700"
+                            />
+                          )}
                         </div>
                       )}
                     </motion.div>
