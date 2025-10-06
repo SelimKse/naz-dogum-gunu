@@ -76,20 +76,13 @@ const CountdownPage = () => {
     calculateTimeLeft();
   }, []);
 
-  const DigitalNumber = ({ value, label }) => (
-    <motion.div
-      className="flex flex-col items-center"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
+  // Memoize DigitalNumber component - sadece value değiştiğinde render olsun
+  const DigitalNumber = React.memo(({ value, label }) => (
+    <div className="flex flex-col items-center">
       <div className="relative">
         {/* Dijital saat çerçevesi */}
         <div className="bg-black rounded-2xl p-6 border-4 border-cyan-500/30 shadow-2xl shadow-cyan-500/50 backdrop-blur-sm">
-          <motion.div
-            key={value}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
+          <div
             className="text-6xl md:text-7xl font-mono font-bold text-cyan-400 tracking-wider min-w-[120px] text-center"
             style={{
               textShadow: "0 0 20px rgba(34, 211, 238, 0.8), 0 0 40px rgba(34, 211, 238, 0.4)",
@@ -97,38 +90,37 @@ const CountdownPage = () => {
             }}
           >
             {String(value).padStart(2, "0")}
-          </motion.div>
+          </div>
           {/* Dijital saat ışık efekti */}
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
         </div>
-        {/* Parlama efekti */}
-        <motion.div
-          className="absolute inset-0 rounded-2xl bg-cyan-500/20 blur-xl"
-          animate={{
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        {/* Parlama efekti - sadece bir kez animate et */}
+        <div
+          className="absolute inset-0 rounded-2xl bg-cyan-500/20 blur-xl animate-pulse"
+          style={{ animationDuration: '2s' }}
         />
       </div>
       {/* Label */}
-      <motion.p
-        className="text-cyan-300 text-sm md:text-base font-semibold mt-3 uppercase tracking-widest"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
+      <p className="text-cyan-300 text-sm md:text-base font-semibold mt-3 uppercase tracking-widest">
         {label}
-      </motion.p>
-    </motion.div>
-  );
+      </p>
+    </div>
+  ));
+
+  // Yıldızları bir kez oluştur - her render'da yeniden oluşmasın
+  const stars = React.useMemo(() => 
+    [...Array(20)].map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      duration: 2 + Math.random() * 2,
+      delay: Math.random() * 2,
+    }))
+  , []);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 relative overflow-hidden">
-      {/* Arka plan animasyonlu grid */}
+      {/* Arka plan animasyonlu grid - static */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0" style={{
           backgroundImage: `
@@ -140,12 +132,7 @@ const CountdownPage = () => {
       </div>
 
       {/* Ana içerik */}
-      <motion.div
-        className="relative z-10 text-center px-4 max-w-6xl"
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-      >
+      <div className="relative z-10 text-center px-4 max-w-6xl">
         {/* Kilit ikonu */}
         <motion.div
           animate={{ 
@@ -163,23 +150,13 @@ const CountdownPage = () => {
         </motion.div>
 
         {/* Başlık */}
-        <motion.h1
-          className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-4"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+        <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-4">
           Henüz Erken! 💝
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          className="text-gray-300 text-xl md:text-2xl mb-12"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
+        <p className="text-gray-300 text-xl md:text-2xl mb-12">
           Bu sayfa doğum gününde açılacak! 🎂✨
-        </motion.p>
+        </p>
 
         {/* Geri sayım sayaçları */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 mb-8">
@@ -191,35 +168,30 @@ const CountdownPage = () => {
         </div>
 
         {/* Alt mesaj */}
-        <motion.div
-          className="mt-12 p-6 bg-purple-500/10 backdrop-blur-sm rounded-2xl border border-purple-500/30"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
+        <div className="mt-12 p-6 bg-purple-500/10 backdrop-blur-sm rounded-2xl border border-purple-500/30">
           <p className="text-purple-300 text-lg">
             Sabret, güzel şeyler bekleyenleredir... ⏳💖
           </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Parıldayan yıldızlar */}
-      {[...Array(20)].map((_, i) => (
+      {/* Parıldayan yıldızlar - bir kez oluştur */}
+      {stars.map((star) => (
         <motion.div
-          key={i}
+          key={star.id}
           className="absolute w-1 h-1 bg-cyan-400 rounded-full"
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
+            left: star.left,
+            top: star.top,
           }}
           animate={{
             opacity: [0, 1, 0],
             scale: [0, 1, 0],
           }}
           transition={{
-            duration: 2 + Math.random() * 2,
+            duration: star.duration,
             repeat: Infinity,
-            delay: Math.random() * 2,
+            delay: star.delay,
           }}
         />
       ))}
