@@ -85,30 +85,30 @@ const Admin = () => {
   useEffect(() => {
     const checkAssets = async () => {
       setIsCheckingAssets(true);
-      
+
       try {
         // Vercel Blob'dan asset listesini al
         const response = await fetch("/api/list-assets");
-        
+
         if (!response.ok) {
           throw new Error("Asset listesi alınamadı");
         }
 
         const data = await response.json();
-        
+
         if (data.success) {
           // Asset URL'lerini kaydet
           const newStatus = {};
           const fileNames = [
             "photo1.png",
-            "photo2.png", 
+            "photo2.png",
             "photo3.png",
             "intro.mp4",
             "video.mp4",
-            "nazin-kitabi.pdf"
+            "nazin-kitabi.pdf",
           ];
 
-          fileNames.forEach(filename => {
+          fileNames.forEach((filename) => {
             newStatus[filename] = data.assets[filename] !== null;
             console.log(
               `${newStatus[filename] ? "✅" : "❌"} ${filename}: ${
@@ -134,7 +134,7 @@ const Admin = () => {
           "nazin-kitabi.pdf": false,
         });
       }
-      
+
       setIsCheckingAssets(false);
     };
 
@@ -327,11 +327,7 @@ const Admin = () => {
           setAssetStatus((prev) => ({ ...prev, [filename]: true }));
         }, 1000);
 
-        showModal(
-          "✅ Başarılı",
-          `${filename} Vercel Blob'a yüklendi!\n\n� URL: ${response.url}\n\n� Dosya artık kullanılabilir!`,
-          "success"
-        );
+        showModal("Başarılı", `${filename} Vercel Blob'a yüklendi!`, "success");
       } else {
         throw new Error(response.error || "Upload failed");
       }
@@ -390,7 +386,7 @@ const Admin = () => {
   const handleAssetDownload = (filename) => {
     // Vercel Blob URL'ini kullan
     const url = assetUrls[filename];
-    
+
     if (url) {
       // Yeni sekmede aç
       window.open(url, "_blank");
