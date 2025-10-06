@@ -111,25 +111,18 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Timeline'ı yükle
+  // Timeline'ı static JSON'dan yükle
   useEffect(() => {
     const loadTimeline = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/timeline");
+        const response = await fetch("/assets/data/timeline.json");
+        if (!response.ok)
+          throw new Error("Timeline yüklenemedi: " + response.status);
         const data = await response.json();
         setTimelineEvents(data);
       } catch (error) {
         console.error("Timeline yükleme hatası:", error);
-        try {
-          const res = await fetch("/assets/data/timeline.json");
-          if (!res.ok)
-            throw new Error("Public timeline.json yüklenemedi: " + res.status);
-          const data = await res.json();
-          setTimelineEvents(data);
-        } catch (fetchErr) {
-          console.error("Public timeline.json yüklenemedi:", fetchErr);
-          setTimelineEvents([]);
-        }
+        setTimelineEvents([]);
       }
     };
 
@@ -174,27 +167,21 @@ const Admin = () => {
     setPassword("");
   };
 
-  // Site Koruma Ayarlarını Backend'e Kaydet
+  // Site Koruma Ayarlarını Kaydet (Sadece bilgilendirme - manuel olarak JSON'u güncellemelisin)
   const saveProtectionSettings = async (newSettings) => {
     try {
-      const response = await fetch("http://localhost:3001/api/protection-settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newSettings),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        showModal("Başarılı", "Koruma ayarları kaydedildi!", "success");
-      } else {
-        showModal("Hata", `Kaydetme hatası: ${data.error}`, "error");
-      }
+      // JSON'u console'a yazdır - manuel olarak kopyalayıp public/assets/data/protection-settings.json'a yapıştırmalısın
+      console.log("📋 Aşağıdaki JSON'u kopyala ve public/assets/data/protection-settings.json dosyasına yapıştır:");
+      console.log(JSON.stringify(newSettings, null, 2));
+      
+      showModal(
+        "Bilgilendirme", 
+        "Ayarlar console'a yazdırıldı. Console'u aç (F12), JSON'u kopyala ve public/assets/data/protection-settings.json dosyasına manuel olarak yapıştır.", 
+        "info"
+      );
     } catch (error) {
       console.error("Koruma ayarları kaydetme hatası:", error);
-      showModal("Hata", "Ayarlar kaydedilemedi!", "error");
+      showModal("Hata", "Bir hata oluştu!", "error");
     }
   };
 
@@ -234,61 +221,49 @@ const Admin = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("targetName", filename);
+    // Dosya yolu mapping'i
+    const pathMap = {
+      "photo1.png": "public/assets/images/photos/photo1.png",
+      "photo2.png": "public/assets/images/photos/photo2.png", 
+      "photo3.png": "public/assets/images/photos/photo3.png",
+      "intro.mp4": "public/assets/videos/intro.mp4",
+      "video.mp4": "public/assets/videos/video.mp4",
+      "nazin-kitabi.pdf": "public/assets/documents/nazin-kitabi.pdf",
+    };
 
-    try {
-      const response = await fetch("http://localhost:3001/api/upload-asset", {
-        method: "POST",
-        body: formData,
-      });
+    const targetPath = pathMap[filename] || `public/assets/${filename}`;
 
-      const data = await response.json();
-
-      if (data.success) {
-        showModal("Başarılı", `${filename} başarıyla yüklendi!`, "success");
-        // Asset durumunu güncelle
-        setAssetStatus((prev) => ({ ...prev, [filename]: true }));
-      } else {
-        showModal("Hata", `Yükleme hatası: ${data.error}`, "error");
-      }
-    } catch (error) {
-      console.error("Yükleme hatası:", error);
-      showModal("Hata", "Dosya yüklenirken bir hata oluştu!", "error");
-    }
+    showModal(
+      "Manuel Yükleme Gerekli",
+      `Dosyayı seç ve manuel olarak şu konuma kopyala:\n${targetPath}\n\nSeçilen dosya: ${file.name}`,
+      "info"
+    );
+    
+    console.log(`📁 Dosyayı buraya kopyala: ${targetPath}`);
+    console.log(`📄 Dosya adı: ${file.name}`);
+    console.log(`📊 Dosya boyutu: ${(file.size / 1024).toFixed(2)} KB`);
   };
 
   // Asset silme fonksiyonu
   const handleAssetDelete = async (filename) => {
+    const pathMap = {
+      "photo1.png": "public/assets/images/photos/photo1.png",
+      "photo2.png": "public/assets/images/photos/photo2.png",
+      "photo3.png": "public/assets/images/photos/photo3.png",
+      "intro.mp4": "public/assets/videos/intro.mp4",
+      "video.mp4": "public/assets/videos/video.mp4",
+      "nazin-kitabi.pdf": "public/assets/documents/nazin-kitabi.pdf",
+    };
+
+    const targetPath = pathMap[filename] || `public/assets/${filename}`;
+    
     showModal(
-      "Onay Gerekli",
-      `${filename} dosyasını silmek istediğinize emin misiniz?`,
-      "question",
-      async () => {
-        try {
-          const response = await fetch(
-            `http://localhost:3001/api/delete-asset/${filename}`,
-            {
-              method: "DELETE",
-            }
-          );
-
-          const data = await response.json();
-
-          if (data.success) {
-            showModal("Başarılı", `${filename} başarıyla silindi!`, "success");
-            // Asset durumunu güncelle
-            setAssetStatus((prev) => ({ ...prev, [filename]: false }));
-          } else {
-            showModal("Hata", `Silme hatası: ${data.error}`, "error");
-          }
-        } catch (error) {
-          console.error("Silme hatası:", error);
-          showModal("Hata", "Dosya silinirken bir hata oluştu!", "error");
-        }
-      }
+      "Manuel Silme Gerekli",
+      `Dosyayı manuel olarak şu konumdan sil:\n${targetPath}`,
+      "info"
     );
+    
+    console.log(`🗑️ Dosyayı buradan sil: ${targetPath}`);
   };
 
   // Asset indirme fonksiyonu
@@ -355,26 +330,20 @@ const Admin = () => {
       const updatedEvents = [...timelineEvents, event];
 
       try {
-        const response = await fetch("http://localhost:3001/api/timeline", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ events: updatedEvents }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          setTimelineEvents(updatedEvents);
-          setNewEvent({ date: "", title: "", description: "", icon: "📅" });
-          showModal("Başarılı", "Timeline olayı başarıyla eklendi!", "success");
-        } else {
-          showModal("Hata", `Ekleme hatası: ${data.error}`, "error");
-        }
+        // JSON'u console'a yazdır
+        console.log("📋 Aşağıdaki JSON'u kopyala ve public/assets/data/timeline.json dosyasına yapıştır:");
+        console.log(JSON.stringify(updatedEvents, null, 2));
+        
+        setTimelineEvents(updatedEvents);
+        setNewEvent({ date: "", title: "", description: "", icon: "📅" });
+        showModal(
+          "Bilgilendirme", 
+          "Timeline güncellendi! Console'u aç (F12), JSON'u kopyala ve public/assets/data/timeline.json dosyasına manuel olarak yapıştır.", 
+          "success"
+        );
       } catch (error) {
         console.error("Timeline ekleme hatası:", error);
-        showModal("Hata", "Olay eklenirken bir hata oluştu!", "error");
+        showModal("Hata", "Bir hata oluştu!", "error");
       }
     }
   };
@@ -388,29 +357,19 @@ const Admin = () => {
         const updatedEvents = timelineEvents.filter((event) => event.id !== id);
 
         try {
-          const response = await fetch("http://localhost:3001/api/timeline", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ events: updatedEvents }),
-          });
-
-          const data = await response.json();
-
-          if (data.success) {
-            setTimelineEvents(updatedEvents);
-            showModal(
-              "Başarılı",
-              "Timeline olayı başarıyla silindi!",
-              "success"
-            );
-          } else {
-            showModal("Hata", `Silme hatası: ${data.error}`, "error");
-          }
+          // JSON'u console'a yazdır
+          console.log("📋 Aşağıdaki JSON'u kopyala ve public/assets/data/timeline.json dosyasına yapıştır:");
+          console.log(JSON.stringify(updatedEvents, null, 2));
+          
+          setTimelineEvents(updatedEvents);
+          showModal(
+            "Bilgilendirme",
+            "Timeline güncellendi! Console'u aç (F12), JSON'u kopyala ve public/assets/data/timeline.json dosyasına manuel olarak yapıştır.",
+            "success"
+          );
         } catch (error) {
           console.error("Timeline silme hatası:", error);
-          showModal("Hata", "Olay silinirken bir hata oluştu!", "error");
+          showModal("Hata", "Bir hata oluştu!", "error");
         }
       }
     );
