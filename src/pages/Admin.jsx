@@ -28,6 +28,9 @@ const Admin = () => {
     "nazin-kitabi.pdf": false,
   });
 
+  // Asset URL'leri (Vercel Blob'dan)
+  const [assetUrls, setAssetUrls] = useState({});
+
   // Asset kontrol loading state
   const [isCheckingAssets, setIsCheckingAssets] = useState(true);
 
@@ -78,50 +81,60 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Asset'leri kontrol et - Sadece fiziksel dosyalar
+  // Asset'leri kontrol et - Vercel Blob'dan
   useEffect(() => {
     const checkAssets = async () => {
       setIsCheckingAssets(true);
-      const assetPaths = {
-        "photo1.png": "/assets/images/photos/photo1.png",
-        "photo2.png": "/assets/images/photos/photo2.png",
-        "photo3.png": "/assets/images/photos/photo3.png",
-        "intro.mp4": "/assets/videos/intro.mp4",
-        "video.mp4": "/assets/videos/video.mp4",
-        "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
-      };
+      
+      try {
+        // Vercel Blob'dan asset listesini al
+        const response = await fetch("/api/list-assets");
+        
+        if (!response.ok) {
+          throw new Error("Asset listesi alınamadı");
+        }
 
-      const newStatus = {};
+        const data = await response.json();
+        
+        if (data.success) {
+          // Asset URL'lerini kaydet
+          const newStatus = {};
+          const fileNames = [
+            "photo1.png",
+            "photo2.png", 
+            "photo3.png",
+            "intro.mp4",
+            "video.mp4",
+            "nazin-kitabi.pdf"
+          ];
 
-      // Fiziksel dosyaları kontrol et - GET ile tam içerik iste
-      await Promise.all(
-        Object.entries(assetPaths).map(async ([filename, path]) => {
-          try {
-            const response = await fetch(path, {
-              method: "GET",
-              cache: "no-cache",
-            });
-
-            // response.ok kontrolü yeterli değil - content-type'a da bak
-            const contentType = response.headers.get("content-type") || "";
-            const isHtml = contentType.includes("text/html");
-
-            // Eğer HTML döndüyse (404 sayfası) dosya yok demektir
-            newStatus[filename] = response.ok && !isHtml;
-
+          fileNames.forEach(filename => {
+            newStatus[filename] = data.assets[filename] !== null;
             console.log(
-              `${newStatus[filename] ? "✅" : "❌"} ${filename}: ${path} (${
-                response.status
-              }, ${contentType})`
+              `${newStatus[filename] ? "✅" : "❌"} ${filename}: ${
+                data.assets[filename] ? "Vercel Blob'da" : "Yok"
+              }`
             );
-          } catch (error) {
-            newStatus[filename] = false;
-            console.log(`❌ ${filename}: Hata - ${error.message}`);
-          }
-        })
-      );
+          });
 
-      setAssetStatus(newStatus);
+          setAssetStatus(newStatus);
+          setAssetUrls(data.assets); // URL'leri kaydet
+        } else {
+          throw new Error(data.error || "Asset listesi alınamadı");
+        }
+      } catch (error) {
+        console.error("Asset kontrol hatası:", error);
+        // Hata durumunda tüm asset'leri yok olarak işaretle
+        setAssetStatus({
+          "photo1.png": false,
+          "photo2.png": false,
+          "photo3.png": false,
+          "intro.mp4": false,
+          "video.mp4": false,
+          "nazin-kitabi.pdf": false,
+        });
+      }
+      
       setIsCheckingAssets(false);
     };
 
@@ -375,17 +388,15 @@ const Admin = () => {
 
   // Asset görüntüleme fonksiyonu - Yeni sekmede aç
   const handleAssetDownload = (filename) => {
-    const pathMap = {
-      "photo1.png": "/assets/images/photos/photo1.png",
-      "photo2.png": "/assets/images/photos/photo2.png",
-      "photo3.png": "/assets/images/photos/photo3.png",
-      "intro.mp4": "/assets/videos/intro.mp4",
-      "video.mp4": "/assets/videos/video.mp4",
-      "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
-    };
-
-    // Yeni sekmede aç
-    window.open(pathMap[filename] || `/assets/${filename}`, "_blank");
+    // Vercel Blob URL'ini kullan
+    const url = assetUrls[filename];
+    
+    if (url) {
+      // Yeni sekmede aç
+      window.open(url, "_blank");
+    } else {
+      showModal("Hata", "Dosya URL'i bulunamadı!", "error");
+    }
   };
 
   const addTimelineEvent = async () => {

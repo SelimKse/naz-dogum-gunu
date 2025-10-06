@@ -1,3 +1,5 @@
+import { del, list } from '@vercel/blob';
+
 export default async function handler(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -25,19 +27,26 @@ export default async function handler(req, res) {
         return;
       }
 
-      // Dosya yolu mapping
-      const pathMap = {
-        "photo1.png": "public/assets/images/photos/photo1.png",
-        "photo2.png": "public/assets/images/photos/photo2.png",
-        "photo3.png": "public/assets/images/photos/photo3.png",
-        "intro.mp4": "public/assets/videos/intro.mp4",
-        "video.mp4": "public/assets/videos/video.mp4",
-        "nazin-kitabi.pdf": "public/assets/documents/nazin-kitabi.pdf",
-      };
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+    
+      if (!token) {
+        return res.status(500).json({ 
+          success: false, 
+          error: "BLOB_READ_WRITE_TOKEN yapılandırılmamış" 
+        });
+      }
 
-      const filePath = pathMap[filename];
+      // İzin verilen dosyalar
+      const allowedFiles = [
+        "photo1.png",
+        "photo2.png",
+        "photo3.png",
+        "intro.mp4",
+        "video.mp4",
+        "nazin-kitabi.pdf"
+      ];
 
-      if (!filePath) {
+      if (!allowedFiles.includes(filename)) {
         res.status(400).json({
           success: false,
           error: "Geçersiz dosya adı",
@@ -45,25 +54,33 @@ export default async function handler(req, res) {
         return;
       }
 
-      // Dosyayı sil
-      const fs = require("fs");
-      const path = require("path");
-      const fullPath = path.join(process.cwd(), filePath);
+      console.log("🔍 Vercel Blob'da dosya aranıyor:", filename);
+      
+      // Önce dosyayı bul
+      const { blobs } = await list({ token });
+      const blob = blobs.find(b => b.pathname.includes(filename));
 
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-        res.status(200).json({
-          success: true,
-          message: `${filename} başarıyla silindi`,
-        });
-      } else {
-        res.status(404).json({
+      if (!blob) {
+        return res.status(404).json({
           success: false,
-          error: "Dosya bulunamadı",
+          error: "Dosya Vercel Blob'da bulunamadı",
         });
       }
+
+      console.log("🗑️ Dosya siliniyor:", blob.url);
+
+      // Vercel Blob'dan sil
+      await del(blob.url, { token });
+
+      console.log("✅ Dosya silindi");
+
+      res.status(200).json({
+        success: true,
+        message: `${filename} başarıyla silindi`,
+      });
+      
     } catch (error) {
-      console.error("Silme hatası:", error);
+      console.error("❌ Silme hatası:", error);
       res.status(500).json({
         success: false,
         error: error.message,

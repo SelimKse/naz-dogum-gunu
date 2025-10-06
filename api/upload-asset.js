@@ -146,6 +146,7 @@ export default async function handler(req, res) {
       access: 'public', // Public erişim
       addRandomSuffix: false, // Dosya adını korumak için
       token: token, // Token'ı manuel olarak geç
+      allowOverwrite: true, // Var olan dosyanın üzerine yaz
     });
 
     console.log("✅ Vercel Blob'a yüklendi:", blob.url);
