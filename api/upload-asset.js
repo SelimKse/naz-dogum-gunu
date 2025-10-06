@@ -1,12 +1,42 @@
-const formidable = require("formidable");
-const fs = require("fs");
-const path = require("path");
+import multer from "multer";
+import fs from "fs";
+import path from "path";
 
 export const config = {
   api: {
-    bodyParser: false, // formidable için gerekli
+    bodyParser: false, // multer için gerekli
   },
 };
+
+// Multer storage konfigürasyonu
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Geçici klasör
+    const tempDir = "/tmp";
+    cb(null, tempDir);
+  },
+  filename: function (req, file, cb) {
+    // Geçici dosya adı
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200MB limit
+});
+
+// Multer middleware'i promise'e çevir
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) {
+        return reject(result);
+      }
+      return resolve(result);
+    });
+  });
+}
 
 export default async function handler(req, res) {
   // CORS
@@ -32,65 +62,67 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = formidable({
-      maxFileSize: 200 * 1024 * 1024, // 200MB limit
-      keepExtensions: true,
-    });
+    // Multer ile dosyayı parse et
+    await runMiddleware(req, res, upload.single("file"));
 
-    form.parse(req, async (err, fields, files) => {
-      if (err) {
-        console.error("Form parse error:", err);
-        res.status(500).json({ success: false, error: "Dosya yüklenirken hata oluştu" });
-        return;
-      }
+    const file = req.file;
+    const filename = req.body.filename;
 
-      const file = files.file;
-      const filename = fields.filename;
+    console.log("📦 Gelen dosya:", file);
+    console.log("📝 Dosya adı:", filename);
 
-      if (!file || !filename) {
-        res.status(400).json({ success: false, error: "Dosya veya dosya adı eksik" });
-        return;
-      }
+    if (!file || !filename) {
+      console.error("❌ Dosya veya filename eksik:", { file, filename });
+      res.status(400).json({ success: false, error: "Dosya veya dosya adı eksik" });
+      return;
+    }
 
-      // Güvenlik: Sadece belirlenen dosya adlarına izin ver
-      const allowedFiles = {
-        "photo1.png": "public/assets/images/photos/",
-        "photo2.png": "public/assets/images/photos/",
-        "photo3.png": "public/assets/images/photos/",
-        "intro.mp4": "public/assets/videos/",
-        "video.mp4": "public/assets/videos/",
-        "nazin-kitabi.pdf": "public/assets/documents/",
-      };
+    // Güvenlik: Sadece belirlenen dosya adlarına izin ver
+    const allowedFiles = {
+      "photo1.png": "public/assets/images/photos/",
+      "photo2.png": "public/assets/images/photos/",
+      "photo3.png": "public/assets/images/photos/",
+      "intro.mp4": "public/assets/videos/",
+      "video.mp4": "public/assets/videos/",
+      "nazin-kitabi.pdf": "public/assets/documents/",
+    };
 
-      if (!allowedFiles[filename]) {
-        res.status(400).json({ success: false, error: "Geçersiz dosya adı" });
-        return;
-      }
+    if (!allowedFiles[filename]) {
+      console.error("❌ Geçersiz dosya adı:", filename);
+      // Geçici dosyayı temizle
+      fs.unlinkSync(file.path);
+      res.status(400).json({ success: false, error: "Geçersiz dosya adı" });
+      return;
+    }
 
-      // Hedef klasör ve dosya yolu
-      const targetDir = path.join(process.cwd(), allowedFiles[filename]);
-      const targetPath = path.join(targetDir, filename);
+    // Hedef klasör ve dosya yolu
+    const targetDir = path.join(process.cwd(), allowedFiles[filename]);
+    const targetPath = path.join(targetDir, filename);
 
-      // Klasör yoksa oluştur
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
+    console.log("📁 Hedef klasör:", targetDir);
+    console.log("📄 Hedef yol:", targetPath);
 
-      // Dosyayı hedef konuma taşı
-      const tempPath = file.filepath || file.path;
-      fs.copyFileSync(tempPath, targetPath);
-      fs.unlinkSync(tempPath); // Geçici dosyayı sil
+    // Klasör yoksa oluştur
+    if (!fs.existsSync(targetDir)) {
+      console.log("📂 Klasör oluşturuluyor:", targetDir);
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
 
-      console.log(`✅ Dosya yüklendi: ${targetPath}`);
+    // Dosyayı hedef konuma taşı
+    console.log("🔄 Dosya kopyalanıyor:", file.path, "->", targetPath);
+    
+    fs.copyFileSync(file.path, targetPath);
+    fs.unlinkSync(file.path); // Geçici dosyayı sil
 
-      res.status(200).json({
-        success: true,
-        message: `${filename} başarıyla yüklendi!`,
-        path: allowedFiles[filename] + filename,
-      });
+    console.log(`✅ Dosya yüklendi: ${targetPath}`);
+
+    res.status(200).json({
+      success: true,
+      message: `${filename} başarıyla yüklendi!`,
+      path: allowedFiles[filename] + filename,
     });
   } catch (error) {
     console.error("Upload error:", error);
-    res.status(500).json({ success: false, error: "Dosya yüklenemedi" });
+    res.status(500).json({ success: false, error: "Dosya yüklenemedi: " + error.message });
   }
 }
