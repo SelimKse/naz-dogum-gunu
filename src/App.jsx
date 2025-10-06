@@ -16,6 +16,217 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Dijital Saat Görünümlü Geri Sayım Sayfası
+const CountdownPage = () => {
+  const [timeLeft, setTimeLeft] = useState({
+    months: 0,
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
+
+  useEffect(() => {
+    const fetchTargetDate = async () => {
+      try {
+        const response = await fetch("/api/protection-settings");
+        if (!response.ok) throw new Error("Ayarlar yüklenemedi");
+        const settings = await response.json();
+        return new Date(settings.targetDate);
+      } catch (error) {
+        console.error("Hedef tarih alınamadı:", error);
+        return new Date("2026-04-21"); // Fallback
+      }
+    };
+
+    const calculateTimeLeft = async () => {
+      const targetDate = await fetchTargetDate();
+
+      const updateCountdown = () => {
+        const now = new Date();
+        const difference = targetDate - now;
+
+        if (difference > 0) {
+          // Tam ay hesaplama
+          let months = 0;
+          let tempDate = new Date(now);
+          while (tempDate < targetDate) {
+            tempDate.setMonth(tempDate.getMonth() + 1);
+            if (tempDate <= targetDate) months++;
+            else break;
+          }
+          tempDate.setMonth(tempDate.getMonth() - 1);
+
+          // Kalan günler
+          const remainingMs = targetDate - tempDate;
+          const days = Math.floor(remainingMs / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
+
+          setTimeLeft({ months, days, hours, minutes, seconds });
+        }
+      };
+
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    };
+
+    calculateTimeLeft();
+  }, []);
+
+  const DigitalNumber = ({ value, label }) => (
+    <motion.div
+      className="flex flex-col items-center"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="relative">
+        {/* Dijital saat çerçevesi */}
+        <div className="bg-black rounded-2xl p-6 border-4 border-cyan-500/30 shadow-2xl shadow-cyan-500/50 backdrop-blur-sm">
+          <motion.div
+            key={value}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-6xl md:text-7xl font-mono font-bold text-cyan-400 tracking-wider min-w-[120px] text-center"
+            style={{
+              textShadow: "0 0 20px rgba(34, 211, 238, 0.8), 0 0 40px rgba(34, 211, 238, 0.4)",
+              fontFamily: "'Orbitron', monospace",
+            }}
+          >
+            {String(value).padStart(2, "0")}
+          </motion.div>
+          {/* Dijital saat ışık efekti */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
+        </div>
+        {/* Parlama efekti */}
+        <motion.div
+          className="absolute inset-0 rounded-2xl bg-cyan-500/20 blur-xl"
+          animate={{
+            opacity: [0.3, 0.6, 0.3],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      </div>
+      {/* Label */}
+      <motion.p
+        className="text-cyan-300 text-sm md:text-base font-semibold mt-3 uppercase tracking-widest"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        {label}
+      </motion.p>
+    </motion.div>
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 relative overflow-hidden">
+      {/* Arka plan animasyonlu grid */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `
+            linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px',
+        }} />
+      </div>
+
+      {/* Ana içerik */}
+      <motion.div
+        className="relative z-10 text-center px-4 max-w-6xl"
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+      >
+        {/* Kilit ikonu */}
+        <motion.div
+          animate={{ 
+            rotate: [0, 5, -5, 5, 0],
+            scale: [1, 1.05, 1]
+          }}
+          transition={{ 
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="text-8xl mb-8"
+        >
+          🔒
+        </motion.div>
+
+        {/* Başlık */}
+        <motion.h1
+          className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          Henüz Erken! 💝
+        </motion.h1>
+
+        <motion.p
+          className="text-gray-300 text-xl md:text-2xl mb-12"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          Bu sayfa doğum gününde açılacak! 🎂✨
+        </motion.p>
+
+        {/* Geri sayım sayaçları */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 mb-8">
+          <DigitalNumber value={timeLeft.months} label="AY" />
+          <DigitalNumber value={timeLeft.days} label="GÜN" />
+          <DigitalNumber value={timeLeft.hours} label="SAAT" />
+          <DigitalNumber value={timeLeft.minutes} label="DAKİKA" />
+          <DigitalNumber value={timeLeft.seconds} label="SANİYE" />
+        </div>
+
+        {/* Alt mesaj */}
+        <motion.div
+          className="mt-12 p-6 bg-purple-500/10 backdrop-blur-sm rounded-2xl border border-purple-500/30"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <p className="text-purple-300 text-lg">
+            Sabret, güzel şeyler bekleyenleredir... ⏳💖
+          </p>
+        </motion.div>
+      </motion.div>
+
+      {/* Parıldayan yıldızlar */}
+      {[...Array(20)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 bg-cyan-400 rounded-full"
+          style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+          }}
+          animate={{
+            opacity: [0, 1, 0],
+            scale: [0, 1, 0],
+          }}
+          transition={{
+            duration: 2 + Math.random() * 2,
+            repeat: Infinity,
+            delay: Math.random() * 2,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 // Merkezi Koruma Sistemi Component
 const ProtectionWrapper = ({ children, pageName }) => {
   const [isBlocked, setIsBlocked] = useState(false);
@@ -86,30 +297,7 @@ const ProtectionWrapper = ({ children, pageName }) => {
   }
 
   if (isBlocked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-800">
-        <motion.div
-          className="bg-gray-900/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl shadow-purple-500/20 max-w-md text-center border-4 border-purple-500/30"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <motion.div
-            animate={{ rotate: [0, 10, -10, 10, 0] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className="text-8xl mb-6"
-          >
-            🔒
-          </motion.div>
-          <h2 className="text-3xl font-bold text-purple-400 mb-4">
-            Henüz Erken! 💝
-          </h2>
-          <p className="text-gray-300 text-lg">
-            Bu sayfa şu an kilitli. Doğum günün gelince açılacak! 🎂✨
-          </p>
-        </motion.div>
-      </div>
-    );
+    return <CountdownPage />;
   }
 
   return children;
