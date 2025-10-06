@@ -127,10 +127,25 @@ export default async function handler(req, res) {
 
     console.log("⬆️ Vercel Blob'a yükleniyor:", blobPath);
 
-    // Vercel Blob'a yükle
+    // Vercel Blob token'ı environment variable'dan al
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    
+    if (!token) {
+      console.error("❌ BLOB_READ_WRITE_TOKEN bulunamadı!");
+      console.log("📋 Mevcut env vars:", Object.keys(process.env).filter(k => k.includes('BLOB')));
+      return res.status(500).json({ 
+        success: false, 
+        error: "BLOB_READ_WRITE_TOKEN environment variable yapılandırılmamış" 
+      });
+    }
+
+    console.log("🔑 Token bulundu, yükleme başlıyor...");
+
+    // Vercel Blob'a yükle (token ile)
     const blob = await put(blobPath, fileData.data, {
       access: 'public', // Public erişim
       addRandomSuffix: false, // Dosya adını korumak için
+      token: token, // Token'ı manuel olarak geç
     });
 
     console.log("✅ Vercel Blob'a yüklendi:", blob.url);
