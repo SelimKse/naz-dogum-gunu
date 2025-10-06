@@ -75,59 +75,35 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Asset'leri kontrol et (doğru yollardan kontrol et)
+  // Asset'leri MongoDB'den yükle
   useEffect(() => {
-    const checkAssets = async () => {
-      const assetPaths = {
-        "photo1.png": "/assets/images/photos/photo1.png",
-        "photo2.png": "/assets/images/photos/photo2.png",
-        "photo3.png": "/assets/images/photos/photo3.png",
-        "intro.mp4": "/assets/videos/intro.mp4",
-        "video.mp4": "/assets/videos/video.mp4",
-        "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
-      };
+    const loadAssets = async () => {
+      try {
+        const response = await fetch("/api/assets");
+        if (!response.ok) throw new Error("Asset'ler yüklenemedi");
 
-      const statusChecks = await Promise.all(
-        Object.entries(assetPaths).map(async ([filename, path]) => {
-          try {
-            // Fetch ile dosya varlığını kontrol et
-            const response = await fetch(path, {
-              method: "HEAD",
-              cache: "no-cache",
-            });
-            return {
-              filename,
-              exists: response.ok,
-              path: path,
-            };
-          } catch (error) {
-            console.error(`${filename} kontrol hatası:`, error);
-            return {
-              filename,
-              exists: false,
-              path: path,
-            };
-          }
-        })
-      );
+        const data = await response.json();
+        setAssetStatus(data.assetStatus);
 
-      const newStatus = {};
-      statusChecks.forEach(({ filename, exists }) => {
-        newStatus[filename] = exists;
-      });
-      setAssetStatus(newStatus);
-
-      // Console'a detaylı rapor
-      console.log("📊 Asset Kontrol Raporu:");
-      statusChecks.forEach(({ filename, exists, path }) => {
-        console.log(`${exists ? "✅" : "❌"} ${filename}: ${path}`);
-      });
+        console.log("📊 MongoDB Asset Durumu:", data.assetStatus);
+      } catch (error) {
+        console.error("Asset yükleme hatası:", error);
+        // Hata durumunda tüm asset'leri false yap
+        setAssetStatus({
+          "photo1.png": false,
+          "photo2.png": false,
+          "photo3.png": false,
+          "intro.mp4": false,
+          "video.mp4": false,
+          "nazin-kitabi.pdf": false,
+        });
+      }
     };
 
     if (isAuthenticated) {
-      checkAssets();
-      // Her 30 saniyede bir yeniden kontrol et
-      const interval = setInterval(checkAssets, 30000);
+      loadAssets();
+      // Her 30 saniyede bir yeniden yükle
+      const interval = setInterval(loadAssets, 30000);
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
@@ -247,73 +223,117 @@ const Admin = () => {
     });
   };
 
-  // Asset yükleme fonksiyonu - Dosyayı yeniden adlandırarak indir
+  // Asset yükleme fonksiyonu - MongoDB'ye kaydet
   const handleAssetUpload = async (filename, event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Dosya yolu mapping'i
-    const pathMap = {
-      "photo1.png": "images/photos/photo1.png",
-      "photo2.png": "images/photos/photo2.png",
-      "photo3.png": "images/photos/photo3.png",
-      "intro.mp4": "videos/intro.mp4",
-      "video.mp4": "videos/video.mp4",
-      "nazin-kitabi.pdf": "documents/nazin-kitabi.pdf",
-    };
-
-    const targetPath = pathMap[filename] || filename;
-
     try {
-      // Dosyayı doğru isimle indir
-      const url = URL.createObjectURL(file);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename; // Hedef dosya adıyla indir
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Dosyayı base64'e çevir
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Data = e.target.result;
 
-      showModal(
-        "Başarılı",
-        `${filename} indirildi! İndirilen dosyayı public/assets/${targetPath
-          .split("/")
-          .slice(0, -1)
-          .join("/")}/ klasörüne kopyala.`,
-        "success"
-      );
+        try {
+          const response = await fetch("/api/assets", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              filename,
+              data: base64Data,
+              mimeType: file.type,
+              size: file.size,
+            }),
+          });
 
-      // Asset durumunu güncelle (varsayalım ki yüklendi)
-      setAssetStatus((prev) => ({ ...prev, [filename]: true }));
+          const data = await response.json();
+
+          if (data.success) {
+            // Asset durumunu güncelle
+            setAssetStatus((prev) => ({ ...prev, [filename]: true }));
+            showModal(
+              "Başarılı",
+              `${filename} MongoDB'ye yüklendi!`,
+              "success"
+            );
+          } else {
+            showModal("Hata", `Yükleme hatası: ${data.error}`, "error");
+          }
+        } catch (error) {
+          console.error("MongoDB yükleme hatası:", error);
+          showModal("Hata", "Dosya MongoDB'ye yüklenemedi!", "error");
+        }
+      };
+
+      reader.onerror = () => {
+        showModal("Hata", "Dosya okunamadı!", "error");
+      };
+
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error("İndirme hatası:", error);
-      showModal("Hata", "Dosya indirilemedi!", "error");
+      console.error("Dosya okuma hatası:", error);
+      showModal("Hata", "Dosya yüklenemedi!", "error");
     }
   };
 
-  // Asset silme fonksiyonu - Sadece UI'dan kaldır
+  // Asset silme fonksiyonu - MongoDB'den sil
   const handleAssetDelete = async (filename) => {
     showModal(
-      "Bilgilendirme",
-      `${filename} dosyasını silmek için:\n1. File Explorer'da proje klasörüne git\n2. public/assets/ içinden ilgili dosyayı bul ve sil\n\nŞimdilik UI'dan kaldırılıyor...`,
-      "info",
-      () => {
-        // Asset durumunu güncelle
-        setAssetStatus((prev) => ({ ...prev, [filename]: false }));
-        showModal("Başarılı", `${filename} UI'dan kaldırıldı!`, "success");
+      "Onay Gerekli",
+      `${filename} dosyasını MongoDB'den silmek istediğinize emin misiniz?`,
+      "question",
+      async () => {
+        try {
+          const response = await fetch("/api/assets", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ filename }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Asset durumunu güncelle
+            setAssetStatus((prev) => ({ ...prev, [filename]: false }));
+            showModal("Başarılı", `${filename} MongoDB'den silindi!`, "success");
+          } else {
+            showModal("Hata", `Silme hatası: ${data.error}`, "error");
+          }
+        } catch (error) {
+          console.error("MongoDB silme hatası:", error);
+          showModal("Hata", "Dosya silinemedi!", "error");
+        }
       }
     );
   };
 
-  // Asset indirme fonksiyonu
-  const handleAssetDownload = (filename) => {
-    const link = document.createElement("a");
-    link.href = `/assets/${filename}`;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Asset indirme fonksiyonu - MongoDB'den indir
+  const handleAssetDownload = async (filename) => {
+    try {
+      const response = await fetch(`/api/asset/${filename}`);
+      
+      if (!response.ok) {
+        showModal("Hata", "Dosya bulunamadı!", "error");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Asset indirme hatası:", error);
+      showModal("Hata", "Dosya indirilemedi!", "error");
+    }
   };
 
   const handlePhotoUpload = (event) => {
@@ -757,17 +777,15 @@ const Admin = () => {
                           {assetStatus[file] ? (
                             <div className="space-y-2">
                               <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
-                                ✓ Video mevcut ve oynatılabilir
+                                ✓ Video MongoDB'de kayıtlı
                               </div>
                               <div className="flex gap-2">
-                                <a
-                                  href={`/assets/videos/${file}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
+                                <button
+                                  onClick={() => handleAssetDownload(file)}
+                                  className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
                                 >
-                                  ▶️ Oynat
-                                </a>
+                                  📥 İndir
+                                </button>
                                 <button
                                   onClick={() => handleAssetDelete(file)}
                                   className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
