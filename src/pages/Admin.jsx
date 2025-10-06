@@ -75,7 +75,7 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Asset'leri kontrol et - Hem fiziksel hem MongoDB
+  // Asset'leri kontrol et - Sadece fiziksel dosyalar
   useEffect(() => {
     const checkAssets = async () => {
       const assetPaths = {
@@ -89,7 +89,7 @@ const Admin = () => {
 
       const newStatus = {};
 
-      // Önce fiziksel dosyaları kontrol et
+      // Fiziksel dosyaları kontrol et
       await Promise.all(
         Object.entries(assetPaths).map(async ([filename, path]) => {
           try {
@@ -98,30 +98,16 @@ const Admin = () => {
               cache: "no-cache",
             });
             newStatus[filename] = response.ok;
+            console.log(`${response.ok ? "✅" : "❌"} ${filename}: ${path}`);
           } catch (error) {
             newStatus[filename] = false;
+            console.log(`❌ ${filename}: Hata - ${error.message}`);
           }
         })
       );
 
-      // MongoDB'yi de kontrol et
-      try {
-        const mongoResponse = await fetch("/api/assets");
-        if (mongoResponse.ok) {
-          const mongoData = await mongoResponse.json();
-          // MongoDB'de varsa da true yap
-          Object.keys(mongoData.assetStatus).forEach(filename => {
-            if (mongoData.assetStatus[filename]) {
-              newStatus[filename] = true;
-            }
-          });
-        }
-      } catch (error) {
-        console.error("MongoDB kontrol hatası:", error);
-      }
-
       setAssetStatus(newStatus);
-      console.log("📊 Asset Kontrol (Fiziksel + MongoDB):", newStatus);
+      console.log("📊 Fiziksel Asset Durumu:", newStatus);
     };
 
     if (isAuthenticated) {
@@ -247,117 +233,78 @@ const Admin = () => {
     });
   };
 
-  // Asset yükleme fonksiyonu - MongoDB'ye kaydet
-  const handleAssetUpload = async (filename, event) => {
+  // Asset yükleme fonksiyonu - Manuel indirme
+  const handleAssetUpload = (filename, event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    try {
-      // Dosyayı base64'e çevir
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64Data = e.target.result;
+    // Dosya türüne göre hedef klasör belirle
+    const pathMap = {
+      "photo1.png": "public/assets/images/photos/",
+      "photo2.png": "public/assets/images/photos/",
+      "photo3.png": "public/assets/images/photos/",
+      "intro.mp4": "public/assets/videos/",
+      "video.mp4": "public/assets/videos/",
+      "nazin-kitabi.pdf": "public/assets/documents/",
+    };
 
-        try {
-          const response = await fetch("/api/assets", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              filename,
-              data: base64Data,
-              mimeType: file.type,
-              size: file.size,
-            }),
-          });
+    const targetPath = pathMap[filename] || "public/assets/";
 
-          const data = await response.json();
+    // Dosyayı indirme linki oluştur (doğru isimle)
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
-          if (data.success) {
-            // Asset durumunu güncelle
-            setAssetStatus((prev) => ({ ...prev, [filename]: true }));
-            showModal(
-              "Başarılı",
-              `${filename} MongoDB'ye yüklendi!`,
-              "success"
-            );
-          } else {
-            showModal("Hata", `Yükleme hatası: ${data.error}`, "error");
-          }
-        } catch (error) {
-          console.error("MongoDB yükleme hatası:", error);
-          showModal("Hata", "Dosya MongoDB'ye yüklenemedi!", "error");
-        }
-      };
-
-      reader.onerror = () => {
-        showModal("Hata", "Dosya okunamadı!", "error");
-      };
-
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Dosya okuma hatası:", error);
-      showModal("Hata", "Dosya yüklenemedi!", "error");
-    }
-  };
-
-  // Asset silme fonksiyonu - MongoDB'den sil
-  const handleAssetDelete = async (filename) => {
     showModal(
-      "Onay Gerekli",
-      `${filename} dosyasını MongoDB'den silmek istediğinize emin misiniz?`,
-      "question",
-      async () => {
-        try {
-          const response = await fetch("/api/assets", {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ filename }),
-          });
-
-          const data = await response.json();
-
-          if (data.success) {
-            // Asset durumunu güncelle
-            setAssetStatus((prev) => ({ ...prev, [filename]: false }));
-            showModal("Başarılı", `${filename} MongoDB'den silindi!`, "success");
-          } else {
-            showModal("Hata", `Silme hatası: ${data.error}`, "error");
-          }
-        } catch (error) {
-          console.error("MongoDB silme hatası:", error);
-          showModal("Hata", "Dosya silinemedi!", "error");
-        }
-      }
+      "Manuel Yükleme",
+      `✅ ${filename} indirildi!\n\n📁 Bu dosyayı şu klasöre kopyala:\n${targetPath}\n\nDosya adı: ${filename}`,
+      "info"
     );
   };
 
-  // Asset indirme fonksiyonu - MongoDB'den indir
-  const handleAssetDownload = async (filename) => {
-    try {
-      const response = await fetch(`/api/asset/${filename}`);
-      
-      if (!response.ok) {
-        showModal("Hata", "Dosya bulunamadı!", "error");
-        return;
-      }
+  // Asset silme fonksiyonu - Manuel silme talimatı
+  const handleAssetDelete = (filename) => {
+    // Dosya türüne göre hedef klasör belirle
+    const pathMap = {
+      "photo1.png": "public/assets/images/photos/",
+      "photo2.png": "public/assets/images/photos/",
+      "photo3.png": "public/assets/images/photos/",
+      "intro.mp4": "public/assets/videos/",
+      "video.mp4": "public/assets/videos/",
+      "nazin-kitabi.pdf": "public/assets/documents/",
+    };
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Asset indirme hatası:", error);
-      showModal("Hata", "Dosya indirilemedi!", "error");
-    }
+    const targetPath = pathMap[filename] || "public/assets/";
+
+    showModal(
+      "Manuel Silme",
+      `${filename} dosyasını silmek için:\n\n📁 Klasör: ${targetPath}\n📄 Dosya: ${filename}\n\nBu dosyayı File Explorer'dan manuel olarak sil.`,
+      "info"
+    );
+  };
+
+  // Asset indirme fonksiyonu - Fiziksel dosyadan indir
+  const handleAssetDownload = (filename) => {
+    const pathMap = {
+      "photo1.png": "/assets/images/photos/photo1.png",
+      "photo2.png": "/assets/images/photos/photo2.png",
+      "photo3.png": "/assets/images/photos/photo3.png",
+      "intro.mp4": "/assets/videos/intro.mp4",
+      "video.mp4": "/assets/videos/video.mp4",
+      "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
+    };
+
+    const link = document.createElement("a");
+    link.href = pathMap[filename] || `/assets/${filename}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handlePhotoUpload = (event) => {
@@ -729,7 +676,7 @@ const Admin = () => {
                                     rel="noopener noreferrer"
                                     className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
                                   >
-                                    �️ Görüntüle
+                                    Görüntüle
                                   </a>
                                   <button
                                     onClick={() => handleAssetDelete(filename)}
@@ -801,7 +748,7 @@ const Admin = () => {
                           {assetStatus[file] ? (
                             <div className="space-y-2">
                               <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
-                                ✓ Video MongoDB'de kayıtlı
+                                ✓ Dosya mevcut ve erişilebilir
                               </div>
                               <div className="flex gap-2">
                                 <button
@@ -872,17 +819,17 @@ const Admin = () => {
                       {assetStatus["nazin-kitabi.pdf"] ? (
                         <div className="space-y-2">
                           <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
-                            ✓ PDF dosyası hazır ve indirilebilir
+                            ✓ Dosya mevcut ve erişilebilir
                           </div>
                           <div className="flex gap-2">
-                            <a
-                              href="/assets/documents/nazin-kitabi.pdf"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
+                            <button
+                              onClick={() =>
+                                handleAssetDownload("nazin-kitabi.pdf")
+                              }
+                              className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
                             >
                               � Aç
-                            </a>
+                            </button>
                             <button
                               onClick={() =>
                                 handleAssetDelete("nazin-kitabi.pdf")
