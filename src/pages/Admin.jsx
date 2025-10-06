@@ -248,7 +248,7 @@ const Admin = () => {
     });
   };
 
-  // Asset yükleme fonksiyonu - Otomatik sunucuya yükleme
+  // Asset yükleme fonksiyonu - Vercel Blob Storage
   const handleAssetUpload = async (filename, event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -269,7 +269,10 @@ const Admin = () => {
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) {
           const percentComplete = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress((prev) => ({ ...prev, [filename]: percentComplete }));
+          setUploadProgress((prev) => ({
+            ...prev,
+            [filename]: percentComplete,
+          }));
         }
       });
 
@@ -298,22 +301,22 @@ const Admin = () => {
       if (response.success) {
         // Progress'i 100'de tut
         setUploadProgress((prev) => ({ ...prev, [filename]: 100 }));
-        
-        // 1 saniye sonra temizle
+
+        // 1 saniye sonra temizle ve güncelle
         setTimeout(() => {
           setUploadProgress((prev) => {
             const newProgress = { ...prev };
             delete newProgress[filename];
             return newProgress;
           });
-          
+
           // Asset durumunu güncelle
           setAssetStatus((prev) => ({ ...prev, [filename]: true }));
         }, 1000);
 
         showModal(
-          "Başarılı",
-          `✅ ${filename} başarıyla sunucuya yüklendi!\n\nDosya otomatik olarak doğru klasöre kaydedildi.`,
+          "✅ Başarılı",
+          `${filename} Vercel Blob'a yüklendi!\n\n� URL: ${response.url}\n\n� Dosya artık kullanılabilir!`,
           "success"
         );
       } else {
@@ -321,7 +324,7 @@ const Admin = () => {
       }
     } catch (error) {
       console.error("Upload error:", error);
-      
+
       // Progress'i temizle
       setUploadProgress((prev) => {
         const newProgress = { ...prev };
@@ -330,7 +333,7 @@ const Admin = () => {
       });
 
       showModal(
-        "Hata", 
+        "❌ Hata",
         `Dosya yüklenemedi!\n\nHata: ${error.message}`,
         "error"
       );

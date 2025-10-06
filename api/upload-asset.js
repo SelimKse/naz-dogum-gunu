@@ -1,13 +1,12 @@
-import fs from "fs";
-import path from "path";
+import { put } from '@vercel/blob';
 
 export const config = {
   api: {
-    bodyParser: false, // Raw body parsing için
+    bodyParser: false,
   },
 };
 
-// Multipart form data parser (native implementation)
+// Multipart form data parser
 function parseMultipartFormData(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -39,7 +38,6 @@ function parseMultipartFormData(req) {
               const contentEnd = part.lastIndexOf('\r\n');
               
               if (filenameMatch) {
-                // File field
                 const fileContent = Buffer.from(
                   part.substring(contentStart, contentEnd),
                   'binary'
@@ -49,7 +47,6 @@ function parseMultipartFormData(req) {
                   data: fileContent
                 };
               } else {
-                // Regular field
                 const fieldValue = part.substring(contentStart, contentEnd);
                 result.fields[fieldName] = fieldValue;
               }
@@ -91,8 +88,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log("📨 Upload request received");
-    console.log("📋 Content-Type:", req.headers['content-type']);
+    console.log("📨 Vercel Blob upload request received");
     
     // Parse multipart form data
     const { fields, files } = await parseMultipartFormData(req);
@@ -100,55 +96,54 @@ export default async function handler(req, res) {
     const filename = fields.filename;
     const fileData = files.file;
 
-    console.log("� Filename:", filename);
-    console.log("� File data size:", fileData?.data?.length || 0);
+    console.log("📝 Filename:", filename);
+    console.log("📦 File size:", fileData?.data?.length || 0);
 
     if (!fileData || !filename) {
-      console.error("❌ Dosya veya filename eksik");
-      res.status(400).json({ success: false, error: "Dosya veya dosya adı eksik" });
-      return;
+      return res.status(400).json({ 
+        success: false, 
+        error: "Dosya veya dosya adı eksik" 
+      });
     }
 
     // Güvenlik: Sadece belirlenen dosya adlarına izin ver
     const allowedFiles = {
-      "photo1.png": "public/assets/images/photos/",
-      "photo2.png": "public/assets/images/photos/",
-      "photo3.png": "public/assets/images/photos/",
-      "intro.mp4": "public/assets/videos/",
-      "video.mp4": "public/assets/videos/",
-      "nazin-kitabi.pdf": "public/assets/documents/",
+      "photo1.png": "assets/images/photos/",
+      "photo2.png": "assets/images/photos/",
+      "photo3.png": "assets/images/photos/",
+      "intro.mp4": "assets/videos/",
+      "video.mp4": "assets/videos/",
+      "nazin-kitabi.pdf": "assets/documents/",
     };
 
     if (!allowedFiles[filename]) {
-      console.error("❌ Geçersiz dosya adı:", filename);
-      res.status(400).json({ success: false, error: "Geçersiz dosya adı" });
-      return;
+      return res.status(400).json({ 
+        success: false, 
+        error: "Geçersiz dosya adı" 
+      });
     }
 
-    // Hedef klasör ve dosya yolu
-    const targetDir = path.join(process.cwd(), allowedFiles[filename]);
-    const targetPath = path.join(targetDir, filename);
+    const blobPath = allowedFiles[filename] + filename;
 
-    console.log("📁 Hedef klasör:", targetDir);
-    console.log("📄 Hedef yol:", targetPath);
+    console.log("⬆️ Vercel Blob'a yükleniyor:", blobPath);
 
-    // Klasör yoksa oluştur
-    if (!fs.existsSync(targetDir)) {
-      console.log("📂 Klasör oluşturuluyor:", targetDir);
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
+    // Vercel Blob'a yükle
+    const blob = await put(blobPath, fileData.data, {
+      access: 'public', // Public erişim
+      addRandomSuffix: false, // Dosya adını korumak için
+    });
 
-    // Dosyayı kaydet
-    console.log("� Dosya kaydediliyor...");
-    fs.writeFileSync(targetPath, fileData.data);
-
-    console.log(`✅ Dosya yüklendi: ${targetPath}`);
+    console.log("✅ Vercel Blob'a yüklendi:", blob.url);
 
     res.status(200).json({
       success: true,
       message: `${filename} başarıyla yüklendi!`,
-      path: allowedFiles[filename] + filename,
+      filename: filename,
+      url: blob.url,
+      downloadUrl: blob.downloadUrl,
+      pathname: blob.pathname,
     });
+
   } catch (error) {
     console.error("❌ Upload error:", error);
     res.status(500).json({ 
