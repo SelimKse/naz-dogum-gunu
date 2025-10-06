@@ -53,11 +53,11 @@ const Admin = () => {
     hediyen: true,
   });
 
-  // Koruma ayarlarını backend'den yükle
+  // Koruma ayarlarını static JSON'dan yükle
   useEffect(() => {
     const loadProtectionSettings = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/protection-settings");
+        const response = await fetch("/assets/data/protection-settings.json");
         if (!response.ok) throw new Error("Ayarlar yüklenemedi");
         
         const settings = await response.json();
@@ -75,26 +75,23 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Asset'leri kontrol et
+  // Asset'leri kontrol et (static dosyaları kontrol et)
   useEffect(() => {
     const checkAssets = async () => {
-      const assets = [
-        "photo1.png",
-        "photo2.png",
-        "photo3.png",
-        "intro.mp4",
-        "video.mp4",
-        "nazin-kitabi.pdf",
-      ];
+      const assetPaths = {
+        "photo1.png": "/assets/images/photos/photo1.png",
+        "photo2.png": "/assets/images/photos/photo2.png",
+        "photo3.png": "/assets/images/photos/photo3.png",
+        "intro.mp4": "/assets/videos/intro.mp4",
+        "video.mp4": "/assets/videos/video.mp4",
+        "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
+      };
 
       const statusChecks = await Promise.all(
-        assets.map(async (filename) => {
+        Object.entries(assetPaths).map(async ([filename, path]) => {
           try {
-            const response = await fetch(
-              `http://localhost:3001/api/check-asset/${filename}`
-            );
-            const data = await response.json();
-            return { filename, exists: data.exists };
+            const response = await fetch(path, { method: 'HEAD' });
+            return { filename, exists: response.ok };
           } catch (error) {
             console.error(`${filename} kontrol hatası:`, error);
             return { filename, exists: false };
@@ -523,6 +520,20 @@ const Admin = () => {
       />
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 p-4">
         <div className="container mx-auto max-w-6xl">
+          {/* Development Warning Banner */}
+          {window.location.hostname !== "localhost" && (
+            <motion.div
+              className="bg-yellow-600/20 border-2 border-yellow-500/50 rounded-xl p-4 mb-4 text-center"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <p className="text-yellow-300 font-semibold">
+                ⚠️ Bu sayfa sadece local development için tasarlanmıştır. 
+                Production ortamında çalışmayabilir.
+              </p>
+            </motion.div>
+          )}
+          
           <motion.div
             className="bg-gray-900 rounded-2xl shadow-xl shadow-purple-500/20 overflow-hidden border-2 border-purple-500/30"
             initial={{ opacity: 0, y: 20 }}

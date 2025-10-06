@@ -2,7 +2,7 @@
   "protectionEnabled": true,
   "targetDate": "2026-04-21",
   "pages": {
-    "home": false,
+    "home": true,
     "timeline": true,
     "ansiklopedi": true,
     "hayaller": true,
