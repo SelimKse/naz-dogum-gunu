@@ -26,24 +26,24 @@ export default async function handler(req, res) {
     // GET - Tüm asset'leri listele
     if (req.method === "GET") {
       const assets = await assetsCollection.find({}).toArray();
-      
+
       // Asset durumlarını map olarak dön
       const assetStatus = {};
-      assets.forEach(asset => {
+      assets.forEach((asset) => {
         assetStatus[asset.filename] = true;
       });
 
       // Eksik olanları false olarak ekle
       const requiredAssets = [
         "photo1.png",
-        "photo2.png", 
+        "photo2.png",
         "photo3.png",
         "intro.mp4",
         "video.mp4",
-        "nazin-kitabi.pdf"
+        "nazin-kitabi.pdf",
       ];
 
-      requiredAssets.forEach(filename => {
+      requiredAssets.forEach((filename) => {
         if (!assetStatus[filename]) {
           assetStatus[filename] = false;
         }
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
       res.status(200).json({
         success: true,
         assets: assets,
-        assetStatus: assetStatus
+        assetStatus: assetStatus,
       });
       return;
     }
@@ -62,9 +62,9 @@ export default async function handler(req, res) {
       const { filename, data, mimeType, size } = req.body;
 
       if (!filename || !data) {
-        res.status(400).json({ 
-          success: false, 
-          error: "Dosya adı ve data gerekli" 
+        res.status(400).json({
+          success: false,
+          error: "Dosya adı ve data gerekli",
         });
         return;
       }
@@ -81,8 +81,8 @@ export default async function handler(req, res) {
               data,
               mimeType,
               size,
-              updatedAt: new Date()
-            }
+              updatedAt: new Date(),
+            },
           }
         );
       } else {
@@ -93,13 +93,13 @@ export default async function handler(req, res) {
           mimeType,
           size,
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         });
       }
 
       res.status(200).json({
         success: true,
-        message: `${filename} MongoDB'ye yüklendi`
+        message: `${filename} MongoDB'ye yüklendi`,
       });
       return;
     }
@@ -109,9 +109,9 @@ export default async function handler(req, res) {
       const { filename } = req.body;
 
       if (!filename) {
-        res.status(400).json({ 
-          success: false, 
-          error: "Dosya adı gerekli" 
+        res.status(400).json({
+          success: false,
+          error: "Dosya adı gerekli",
         });
         return;
       }
@@ -121,14 +121,14 @@ export default async function handler(req, res) {
       if (result.deletedCount === 0) {
         res.status(404).json({
           success: false,
-          error: "Asset bulunamadı"
+          error: "Asset bulunamadı",
         });
         return;
       }
 
       res.status(200).json({
         success: true,
-        message: `${filename} silindi`
+        message: `${filename} silindi`,
       });
       return;
     }
@@ -136,9 +136,9 @@ export default async function handler(req, res) {
     res.status(405).json({ error: "Method not allowed" });
   } catch (error) {
     console.error("Asset API hatası:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      error: error.message,
     });
   }
 }

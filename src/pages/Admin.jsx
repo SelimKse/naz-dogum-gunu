@@ -75,35 +75,59 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Asset'leri MongoDB'den yükle
+  // Asset'leri kontrol et - Hem fiziksel hem MongoDB
   useEffect(() => {
-    const loadAssets = async () => {
+    const checkAssets = async () => {
+      const assetPaths = {
+        "photo1.png": "/assets/images/photos/photo1.png",
+        "photo2.png": "/assets/images/photos/photo2.png",
+        "photo3.png": "/assets/images/photos/photo3.png",
+        "intro.mp4": "/assets/videos/intro.mp4",
+        "video.mp4": "/assets/videos/video.mp4",
+        "nazin-kitabi.pdf": "/assets/documents/nazin-kitabi.pdf",
+      };
+
+      const newStatus = {};
+
+      // Önce fiziksel dosyaları kontrol et
+      await Promise.all(
+        Object.entries(assetPaths).map(async ([filename, path]) => {
+          try {
+            const response = await fetch(path, {
+              method: "HEAD",
+              cache: "no-cache",
+            });
+            newStatus[filename] = response.ok;
+          } catch (error) {
+            newStatus[filename] = false;
+          }
+        })
+      );
+
+      // MongoDB'yi de kontrol et
       try {
-        const response = await fetch("/api/assets");
-        if (!response.ok) throw new Error("Asset'ler yüklenemedi");
-
-        const data = await response.json();
-        setAssetStatus(data.assetStatus);
-
-        console.log("📊 MongoDB Asset Durumu:", data.assetStatus);
+        const mongoResponse = await fetch("/api/assets");
+        if (mongoResponse.ok) {
+          const mongoData = await mongoResponse.json();
+          // MongoDB'de varsa da true yap
+          Object.keys(mongoData.assetStatus).forEach(filename => {
+            if (mongoData.assetStatus[filename]) {
+              newStatus[filename] = true;
+            }
+          });
+        }
       } catch (error) {
-        console.error("Asset yükleme hatası:", error);
-        // Hata durumunda tüm asset'leri false yap
-        setAssetStatus({
-          "photo1.png": false,
-          "photo2.png": false,
-          "photo3.png": false,
-          "intro.mp4": false,
-          "video.mp4": false,
-          "nazin-kitabi.pdf": false,
-        });
+        console.error("MongoDB kontrol hatası:", error);
       }
+
+      setAssetStatus(newStatus);
+      console.log("📊 Asset Kontrol (Fiziksel + MongoDB):", newStatus);
     };
 
     if (isAuthenticated) {
-      loadAssets();
-      // Her 30 saniyede bir yeniden yükle
-      const interval = setInterval(loadAssets, 30000);
+      checkAssets();
+      // Her 10 saniyede bir kontrol et
+      const interval = setInterval(checkAssets, 10000);
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
