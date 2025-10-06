@@ -556,28 +556,13 @@ const Surpriz = () => {
                   <motion.button
                     onClick={async () => {
                       if (feedback.trim().length >= 100) {
-                        // Feedback'i dosyaya kaydet
+                        // Feedback'i localStorage'a kaydet (Vercel için)
                         try {
-                          const response = await fetch(
-                            "http://localhost:3001/api/save-feedback",
-                            {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                              },
-                              body: JSON.stringify({
-                                feedback: feedback.trim(),
-                              }),
-                            }
-                          );
-
-                          if (response.ok) {
-                            console.log("✅ Feedback başarıyla kaydedildi!");
-                          } else {
-                            console.error("❌ Feedback kaydedilemedi");
-                          }
+                          localStorage.setItem("naz-feedback", feedback.trim());
+                          localStorage.setItem("naz-feedback-date", new Date().toISOString());
+                          console.log("✅ Feedback kaydedildi!");
                         } catch (error) {
-                          console.error("❌ Server bağlantı hatası:", error);
+                          console.error("❌ Feedback kaydedilemedi:", error);
                         }
 
                         // Development: Ana sayfaya dön

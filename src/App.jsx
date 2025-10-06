@@ -24,8 +24,8 @@ const ProtectionWrapper = ({ children, pageName }) => {
   useEffect(() => {
     const checkProtection = async () => {
       try {
-        // Backend API'den ayarları çek
-        const response = await fetch("http://localhost:3001/api/protection-settings");
+        // Vercel için direkt public JSON'dan oku
+        const response = await fetch("/assets/data/protection-settings.json");
         
         if (!response.ok) {
           throw new Error("Ayarlar yüklenemedi");
@@ -53,36 +53,9 @@ const ProtectionWrapper = ({ children, pageName }) => {
         setIsLoading(false);
       } catch (error) {
         console.error("Koruma ayarları yükleme hatası:", error);
-        
-        // Hata durumunda public JSON'dan okumayı dene (Vercel için)
-        try {
-          const fallbackResponse = await fetch("/assets/data/protection-settings.json");
-          if (!fallbackResponse.ok) throw new Error("Fallback JSON yüklenemedi");
-          
-          const settings = await fallbackResponse.json();
-          
-          if (!settings.protectionEnabled || !settings.pages[pageName]) {
-            setIsBlocked(false);
-            setIsLoading(false);
-            return;
-          }
-
-          const currentDate = new Date();
-          const targetDate = new Date(settings.targetDate);
-
-          if (currentDate < targetDate) {
-            setIsBlocked(true);
-          } else {
-            setIsBlocked(false);
-          }
-          
-          setIsLoading(false);
-        } catch (fallbackError) {
-          console.error("Fallback JSON yükleme hatası:", fallbackError);
-          // Tamamen başarısız olursa, default olarak erişime izin ver
-          setIsBlocked(false);
-          setIsLoading(false);
-        }
+        // Hata durumunda default olarak erişime izin ver
+        setIsBlocked(false);
+        setIsLoading(false);
       }
     };
 
@@ -183,8 +156,8 @@ const StepNavigation = () => {
       }
 
       try {
-        // Backend API'den ayarları çek
-        const response = await fetch("http://localhost:3001/api/protection-settings");
+        // Vercel için direkt public JSON'dan oku
+        const response = await fetch("/assets/data/protection-settings.json");
         
         if (!response.ok) {
           throw new Error("Ayarlar yüklenemedi");
@@ -203,27 +176,7 @@ const StepNavigation = () => {
         setIsPageBlocked(currentDate < targetDate);
       } catch (error) {
         console.error("Koruma kontrolü hatası:", error);
-        
-        // Hata durumunda public JSON'dan okumayı dene
-        try {
-          const fallbackResponse = await fetch("/assets/data/protection-settings.json");
-          if (!fallbackResponse.ok) throw new Error("Fallback JSON yüklenemedi");
-          
-          const settings = await fallbackResponse.json();
-
-          if (!settings.protectionEnabled || !settings.pages[pageName]) {
-            setIsPageBlocked(false);
-            return;
-          }
-
-          const currentDate = new Date();
-          const targetDate = new Date(settings.targetDate);
-
-          setIsPageBlocked(currentDate < targetDate);
-        } catch (fallbackError) {
-          console.error("Fallback koruma kontrolü hatası:", fallbackError);
-          setIsPageBlocked(false);
-        }
+        setIsPageBlocked(false);
       }
     };
 
