@@ -60,8 +60,12 @@ const CountdownPage = () => {
           // Kalan günler
           const remainingMs = targetDate - tempDate;
           const days = Math.floor(remainingMs / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+          const hours = Math.floor(
+            (remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+          );
+          const minutes = Math.floor(
+            (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
+          );
           const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
 
           setTimeLeft({ months, days, hours, minutes, seconds });
@@ -85,7 +89,8 @@ const CountdownPage = () => {
           <div
             className="text-6xl md:text-7xl font-mono font-bold text-cyan-400 tracking-wider min-w-[120px] text-center"
             style={{
-              textShadow: "0 0 20px rgba(34, 211, 238, 0.8), 0 0 40px rgba(34, 211, 238, 0.4)",
+              textShadow:
+                "0 0 20px rgba(34, 211, 238, 0.8), 0 0 40px rgba(34, 211, 238, 0.4)",
               fontFamily: "'Orbitron', monospace",
             }}
           >
@@ -105,56 +110,59 @@ const CountdownPage = () => {
   ));
 
   // Yıldızları bir kez oluştur - her render'da yeniden oluşmasın
-  const stars = React.useMemo(() => 
-    [...Array(20)].map((_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      duration: 2 + Math.random() * 2,
-      delay: Math.random() * 2,
-    }))
-  , []);
+  const stars = React.useMemo(
+    () =>
+      [...Array(20)].map((_, i) => ({
+        id: i,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+        duration: 2 + Math.random() * 2,
+        delay: Math.random() * 2,
+      })),
+    []
+  );
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 relative overflow-hidden">
       {/* Arka plan animasyonlu grid - static */}
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
             linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px),
             linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px)
           `,
-          backgroundSize: '50px 50px',
-        }} />
+            backgroundSize: "50px 50px",
+          }}
+        />
       </div>
 
       {/* Ana içerik */}
       <div className="relative z-10 text-center px-4 max-w-6xl">
         {/* Kilit ikonu */}
         <motion.div
-          animate={{ 
+          animate={{
             rotate: [0, 5, -5, 5, 0],
-            scale: [1, 1.05, 1]
+            scale: [1, 1.05, 1],
           }}
-          transition={{ 
+          transition={{
             duration: 3,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: "easeInOut",
           }}
           className="text-8xl mb-8"
         >
           🔒
         </motion.div>
-
         {/* Başlık */}
         <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-          Henüz Erken! 💝
+          Henüz Erken!
         </h1>
-
+        💝
         <p className="text-gray-300 text-xl md:text-2xl mb-12">
           Bu sayfa doğum gününde açılacak! 🎂✨
         </p>
-
         {/* Geri sayım sayaçları */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 mb-8">
           <DigitalNumber value={timeLeft.months} label="AY" />
@@ -163,7 +171,6 @@ const CountdownPage = () => {
           <DigitalNumber value={timeLeft.minutes} label="DAKİKA" />
           <DigitalNumber value={timeLeft.seconds} label="SANİYE" />
         </div>
-
         {/* Alt mesaj */}
         <div className="mt-12 p-6 bg-purple-500/10 backdrop-blur-sm rounded-2xl border border-purple-500/30">
           <p className="text-purple-300 text-lg">
@@ -207,13 +214,13 @@ const ProtectionWrapper = ({ children, pageName }) => {
       try {
         // MongoDB'den ayarları çek
         const response = await fetch("/api/protection-settings");
-        
+
         if (!response.ok) {
           throw new Error("Ayarlar yüklenemedi");
         }
 
         const settings = await response.json();
-        
+
         // Koruma kapalıysa veya sayfa korumasız ise kontrol yapma
         if (!settings.protectionEnabled || !settings.pages[pageName]) {
           setIsBlocked(false);
@@ -230,7 +237,7 @@ const ProtectionWrapper = ({ children, pageName }) => {
         } else {
           setIsBlocked(false);
         }
-        
+
         setIsLoading(false);
       } catch (error) {
         console.error("Koruma ayarları yükleme hatası:", error);
@@ -316,7 +323,7 @@ const StepNavigation = () => {
       try {
         // MongoDB'den ayarları çek
         const response = await fetch("/api/protection-settings");
-        
+
         if (!response.ok) {
           throw new Error("Ayarlar yüklenemedi");
         }
