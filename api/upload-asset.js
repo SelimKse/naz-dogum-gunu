@@ -5,7 +5,7 @@ export const config = {
     bodyParser: false,
     responseLimit: false, // Büyük dosyalar için
   },
-  maxDuration: 300, // 5 dakika timeout (Hobby plan için 10s, Pro için 300s)
+  maxDuration: 60, // 60 saniye (Hobby plan max, Pro için 300s)
 };
 
 // Multipart form data parser
@@ -108,6 +108,15 @@ export default async function handler(req, res) {
       });
     }
 
+    // Dosya boyutu kontrolü (500MB server-side limit)
+    const maxSize = 500 * 1024 * 1024; // 500MB
+    if (fileData.data.length > maxSize) {
+      return res.status(413).json({
+        success: false,
+        error: `Dosya çok büyük (${(fileData.data.length / 1024 / 1024).toFixed(2)} MB). Maksimum 500MB.`,
+      });
+    }
+
     // Güvenlik: Sadece belirlenen dosya adlarına izin ver
     const allowedFiles = {
       "photo1.png": "assets/images/photos/",
@@ -147,13 +156,12 @@ export default async function handler(req, res) {
     console.log("🔑 Token bulundu, yükleme başlıyor...");
 
     // Vercel Blob'a yükle (token ile)
-    // put() otomatik olarak büyük dosyalar için multipart upload kullanır (1GB'a kadar)
+    // put() otomatik olarak büyük dosyalar için multipart kullanır
     const blob = await put(blobPath, fileData.data, {
       access: "public", // Public erişim
       addRandomSuffix: false, // Dosya adını korumak için
       token: token, // Token'ı manuel olarak geç
       allowOverwrite: true, // Var olan dosyanın üzerine yaz
-      multipart: true, // Büyük dosyalar için multipart upload aktif
     });
 
     console.log("✅ Vercel Blob'a yüklendi:", blob.url);

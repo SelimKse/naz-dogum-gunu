@@ -267,12 +267,12 @@ const Admin = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Dosya boyutu kontrolü (1GB = 1073741824 bytes)
-    const maxSize = 1024 * 1024 * 1024; // 1GB
+    // Dosya boyutu kontrolü (500MB)
+    const maxSize = 500 * 1024 * 1024; // 500MB
     if (file.size > maxSize) {
       showModal(
         "Dosya Çok Büyük",
-        `${filename} maksimum 1GB olabilir (şu an: ${(file.size / 1024 / 1024).toFixed(2)} MB)`,
+        `${filename} maksimum 500MB olabilir (şu an: ${(file.size / 1024 / 1024).toFixed(2)} MB)`,
         "error"
       );
       return;
@@ -284,7 +284,7 @@ const Admin = () => {
     setUploadProgress((prev) => ({ ...prev, [filename]: 0 }));
 
     try {
-      // Vercel Blob'un client-side upload'ı - otomatik multipart (1GB'a kadar)
+      // Vercel Blob client-side upload (direkt Blob'a, server'dan geçmez)
       const newBlob = await upload(filename, file, {
         access: "public",
         handleUploadUrl: "/api/upload-chunk",
@@ -293,6 +293,7 @@ const Admin = () => {
             ...prev,
             [filename]: Math.round(percentage),
           }));
+          console.log(`⬆️ ${filename}: ${Math.round(percentage)}%`);
         },
       });
 

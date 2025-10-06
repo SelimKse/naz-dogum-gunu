@@ -1,33 +1,25 @@
 import { handleUpload } from "@vercel/blob/client";
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
-  maxDuration: 300, // 5 dakika
+  maxDuration: 60,
 };
 
 export default async function handler(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET,OPTIONS,PATCH,DELETE,POST,PUT"
-  );
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Filename, X-Total-Chunks, X-Chunk-Index"
+    "Content-Type, Authorization"
   );
 
   if (req.method === "OPTIONS") {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    res.status(405).json({ success: false, error: "Method not allowed" });
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
@@ -36,41 +28,42 @@ export default async function handler(req, res) {
     if (!token) {
       console.error("❌ BLOB_READ_WRITE_TOKEN bulunamadı!");
       return res.status(500).json({ 
-        error: "BLOB_READ_WRITE_TOKEN environment variable yapılandırılmamış" 
+        error: "BLOB_READ_WRITE_TOKEN yapılandırılmamış" 
       });
     }
 
-    console.log("🔑 Token bulundu, handleUpload başlıyor...");
+    // Body'yi JSON olarak parse et
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-    // Vercel Blob'un client upload sistemi - 1GB'a kadar destekler
+    console.log("📝 Upload request body:", body);
+
+    // Vercel Blob'un handleUpload fonksiyonu
     const jsonResponse = await handleUpload({
+      body,
       request: req,
-      body: req,
-      token: token,
-      onBeforeGenerateToken: async (pathname, clientPayload) => {
-        console.log("📝 Upload request pathname:", pathname);
-        console.log("📝 Client payload:", clientPayload);
+      onBeforeGenerateToken: async (pathname) => {
+        console.log("🎯 Token oluşturuluyor:", pathname);
 
-        // pathname dosya adı olacak (örn: "photo1.png", "intro.mp4")
+        // pathname tam path olarak gelir (örn: "photo1.png")
         const filename = pathname;
 
         // Güvenlik: Sadece belirlenen dosyalar
         const allowedFiles = {
-          "photo1.png": "assets/images/photos/",
-          "photo2.png": "assets/images/photos/",
-          "photo3.png": "assets/images/photos/",
-          "intro.mp4": "assets/videos/",
-          "video.mp4": "assets/videos/",
-          "nazin-kitabi.pdf": "assets/documents/",
+          "photo1.png": "assets/images/photos/photo1.png",
+          "photo2.png": "assets/images/photos/photo2.png",
+          "photo3.png": "assets/images/photos/photo3.png",
+          "intro.mp4": "assets/videos/intro.mp4",
+          "video.mp4": "assets/videos/video.mp4",
+          "nazin-kitabi.pdf": "assets/documents/nazin-kitabi.pdf",
         };
 
-        if (!allowedFiles[filename]) {
-          throw new Error("Geçersiz dosya adı: " + filename);
+        const blobPath = allowedFiles[filename];
+
+        if (!blobPath) {
+          throw new Error("Geçersiz dosya: " + filename);
         }
 
-        // Tam path oluştur
-        const blobPath = allowedFiles[filename] + filename;
-        console.log("🎯 Blob path:", blobPath);
+        console.log("✅ Token oluşturuldu:", blobPath);
 
         return {
           allowedContentTypes: [
@@ -79,21 +72,20 @@ export default async function handler(req, res) {
             "video/mp4",
             "application/pdf",
           ],
-          maximumSizeInBytes: 1024 * 1024 * 1024, // 1GB
+          maximumSizeInBytes: 500 * 1024 * 1024, // 500MB
           addRandomSuffix: false,
-          pathname: blobPath, // Tam path'i döndür
+          pathname: blobPath,
+          token: token, // Token'ı buraya ekle
         };
       },
-      onUploadCompleted: async ({ blob }) => {
-        console.log("✅ Upload tamamlandı:", blob.url);
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log("🎉 Upload tamamlandı:", blob.url);
       },
     });
 
-    console.log("📤 Response:", jsonResponse);
     return res.status(200).json(jsonResponse);
   } catch (error) {
-    console.error("❌ Upload error:", error);
-    console.error("❌ Error stack:", error.stack);
+    console.error("❌ Upload hatası:", error);
     return res.status(400).json({ error: error.message });
   }
 }
