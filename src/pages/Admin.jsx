@@ -59,7 +59,7 @@ const Admin = () => {
       try {
         const response = await fetch("/api/protection-settings");
         if (!response.ok) throw new Error("Ayarlar yüklenemedi");
-        
+
         const settings = await response.json();
         setIsProtectionEnabled(settings.protectionEnabled);
         setTargetDate(settings.targetDate);
@@ -75,7 +75,7 @@ const Admin = () => {
     }
   }, [isAuthenticated]);
 
-  // Asset'leri kontrol et (static dosyaları kontrol et)
+  // Asset'leri kontrol et (doğru yollardan kontrol et)
   useEffect(() => {
     const checkAssets = async () => {
       const assetPaths = {
@@ -90,11 +90,23 @@ const Admin = () => {
       const statusChecks = await Promise.all(
         Object.entries(assetPaths).map(async ([filename, path]) => {
           try {
-            const response = await fetch(path, { method: 'HEAD' });
-            return { filename, exists: response.ok };
+            // Fetch ile dosya varlığını kontrol et
+            const response = await fetch(path, {
+              method: "HEAD",
+              cache: "no-cache",
+            });
+            return {
+              filename,
+              exists: response.ok,
+              path: path,
+            };
           } catch (error) {
             console.error(`${filename} kontrol hatası:`, error);
-            return { filename, exists: false };
+            return {
+              filename,
+              exists: false,
+              path: path,
+            };
           }
         })
       );
@@ -104,10 +116,19 @@ const Admin = () => {
         newStatus[filename] = exists;
       });
       setAssetStatus(newStatus);
+
+      // Console'a detaylı rapor
+      console.log("📊 Asset Kontrol Raporu:");
+      statusChecks.forEach(({ filename, exists, path }) => {
+        console.log(`${exists ? "✅" : "❌"} ${filename}: ${path}`);
+      });
     };
 
     if (isAuthenticated) {
       checkAssets();
+      // Her 30 saniyede bir yeniden kontrol et
+      const interval = setInterval(checkAssets, 30000);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -181,7 +202,11 @@ const Admin = () => {
       const data = await response.json();
 
       if (data.success) {
-        showModal("Başarılı", "Koruma ayarları MongoDB'ye kaydedildi!", "success");
+        showModal(
+          "Başarılı",
+          "Koruma ayarları MongoDB'ye kaydedildi!",
+          "success"
+        );
       } else {
         showModal("Hata", `Kaydetme hatası: ${data.error}`, "error");
       }
@@ -230,7 +255,7 @@ const Admin = () => {
     // Dosya yolu mapping'i
     const pathMap = {
       "photo1.png": "images/photos/photo1.png",
-      "photo2.png": "images/photos/photo2.png", 
+      "photo2.png": "images/photos/photo2.png",
       "photo3.png": "images/photos/photo3.png",
       "intro.mp4": "videos/intro.mp4",
       "video.mp4": "videos/video.mp4",
@@ -249,13 +274,16 @@ const Admin = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       showModal(
         "Başarılı",
-        `${filename} indirildi! İndirilen dosyayı public/assets/${targetPath.split('/').slice(0, -1).join('/')}/ klasörüne kopyala.`,
+        `${filename} indirildi! İndirilen dosyayı public/assets/${targetPath
+          .split("/")
+          .slice(0, -1)
+          .join("/")}/ klasörüne kopyala.`,
         "success"
       );
-      
+
       // Asset durumunu güncelle (varsayalım ki yüklendi)
       setAssetStatus((prev) => ({ ...prev, [filename]: true }));
     } catch (error) {
@@ -355,7 +383,11 @@ const Admin = () => {
         if (data.success) {
           setTimelineEvents(updatedEvents);
           setNewEvent({ date: "", title: "", description: "", icon: "📅" });
-          showModal("Başarılı", "Timeline olayı MongoDB'ye eklendi!", "success");
+          showModal(
+            "Başarılı",
+            "Timeline olayı MongoDB'ye eklendi!",
+            "success"
+          );
         } else {
           showModal("Hata", `Ekleme hatası: ${data.error}`, "error");
         }
@@ -507,20 +539,6 @@ const Admin = () => {
       />
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 p-4">
         <div className="container mx-auto max-w-6xl">
-          {/* Development Warning Banner */}
-          {window.location.hostname !== "localhost" && (
-            <motion.div
-              className="bg-yellow-600/20 border-2 border-yellow-500/50 rounded-xl p-4 mb-4 text-center"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <p className="text-yellow-300 font-semibold">
-                ⚠️ Bu sayfa sadece local development için tasarlanmıştır. 
-                Production ortamında çalışmayabilir.
-              </p>
-            </motion.div>
-          )}
-          
           <motion.div
             className="bg-gray-900 rounded-2xl shadow-xl shadow-purple-500/20 overflow-hidden border-2 border-purple-500/30"
             initial={{ opacity: 0, y: 20 }}
@@ -574,286 +592,281 @@ const Admin = () => {
             {/* Content */}
             <div className="p-6">
               {activeTab === "assets" && (
-                <div className="space-y-8">
-                  {/* Ana Sayfa Fotoğrafları */}
-                  <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 rounded-xl border-2 border-purple-500/30">
-                    <h3 className="text-2xl font-bold text-purple-300 mb-4 flex items-center gap-2">
-                      <span>🏠</span> Ana Sayfa Fotoğrafları
+                <div className="space-y-6">
+                  {/* Genel Durum Özeti */}
+                  <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-6 rounded-xl border-2 border-purple-500/50">
+                    <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                      <span>📊</span> Asset Durumu
                     </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+                        <div className="text-3xl mb-2">
+                          {Object.values(assetStatus).filter(Boolean).length}
+                        </div>
+                        <div className="text-green-400 font-semibold">
+                          Hazır
+                        </div>
+                      </div>
+                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+                        <div className="text-3xl mb-2">
+                          {Object.values(assetStatus).filter((v) => !v).length}
+                        </div>
+                        <div className="text-red-400 font-semibold">Eksik</div>
+                      </div>
+                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+                        <div className="text-3xl mb-2">6</div>
+                        <div className="text-gray-400 font-semibold">
+                          Toplam
+                        </div>
+                      </div>
+                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
+                        <div className="text-3xl mb-2">
+                          {Math.round(
+                            (Object.values(assetStatus).filter(Boolean).length /
+                              6) *
+                              100
+                          )}
+                          %
+                        </div>
+                        <div className="text-purple-400 font-semibold">
+                          Tamamlama
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ana Sayfa Fotoğrafları */}
+                  <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-purple-500/30">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-purple-300 flex items-center gap-2">
+                        <span>📸</span> Ana Sayfa Fotoğrafları
+                      </h3>
+                      <span className="text-sm text-gray-400">
+                        /assets/images/photos/
+                      </span>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-gray-800 p-4 rounded-lg border-2 border-purple-500/30">
-                        <h4 className="font-semibold text-purple-300 mb-2">
-                          Fotoğraf 1
-                        </h4>
-                        {assetStatus["photo1.png"] ? (
-                          <>
-                            <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: public/assets/photo1.png
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() =>
-                                  handleAssetDownload("photo1.png")
-                                }
-                                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                              >
-                                📥 İndir
-                              </button>
-                              <button
-                                onClick={() => handleAssetDelete("photo1.png")}
-                                className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                              >
-                                🗑️ Sil
-                              </button>
+                      {["photo1.png", "photo2.png", "photo3.png"].map(
+                        (filename, index) => (
+                          <motion.div
+                            key={filename}
+                            className={`p-4 rounded-lg border-2 transition-all ${
+                              assetStatus[filename]
+                                ? "bg-green-900/20 border-green-500/50"
+                                : "bg-red-900/20 border-red-500/50"
+                            }`}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-bold text-white mb-1">
+                                  Fotoğraf {index + 1}
+                                </h4>
+                                <p className="text-xs text-gray-400">
+                                  {filename}
+                                </p>
+                              </div>
+                              <div className="text-2xl">
+                                {assetStatus[filename] ? "✅" : "❌"}
+                              </div>
                             </div>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: public/assets/photo1.png yükleyin
-                            </p>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) =>
-                                handleAssetUpload("photo1.png", e)
-                              }
-                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-sm"
-                            />
-                          </>
-                        )}
-                      </div>
 
-                      <div className="bg-gray-800 p-4 rounded-lg border-2 border-purple-500/30">
-                        <h4 className="font-semibold text-purple-300 mb-2">
-                          Fotoğraf 2
-                        </h4>
-                        {assetStatus["photo2.png"] ? (
-                          <>
-                            <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: public/assets/photo2.png
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() =>
-                                  handleAssetDownload("photo2.png")
-                                }
-                                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                              >
-                                📥 İndir
-                              </button>
-                              <button
-                                onClick={() => handleAssetDelete("photo2.png")}
-                                className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                              >
-                                🗑️ Sil
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: public/assets/photo2.png yükleyin
-                            </p>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) =>
-                                handleAssetUpload("photo2.png", e)
-                              }
-                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-sm"
-                            />
-                          </>
-                        )}
-                      </div>
-
-                      {/* photo3.png */}
-                      <div className="bg-gray-800 p-4 rounded-lg border-2 border-purple-500/30">
-                        <h4 className="font-semibold text-purple-300 mb-2">
-                          Fotoğraf 3
-                        </h4>
-                        {assetStatus["photo3.png"] ? (
-                          <>
-                            <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: public/assets/photo3.png
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() =>
-                                  handleAssetDownload("photo3.png")
-                                }
-                                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                              >
-                                📥 İndir
-                              </button>
-                              <button
-                                onClick={() => handleAssetDelete("photo3.png")}
-                                className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                              >
-                                🗑️ Sil
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: public/assets/photo3.png yükleyin
-                            </p>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) =>
-                                handleAssetUpload("photo3.png", e)
-                              }
-                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-sm"
-                            />
-                          </>
-                        )}
-                      </div>
+                            {assetStatus[filename] ? (
+                              <div className="space-y-2">
+                                <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
+                                  ✓ Dosya mevcut ve erişilebilir
+                                </div>
+                                <div className="flex gap-2">
+                                  <a
+                                    href={`/assets/images/photos/${filename}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
+                                  >
+                                    �️ Görüntüle
+                                  </a>
+                                  <button
+                                    onClick={() => handleAssetDelete(filename)}
+                                    className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
+                                  ✗ Dosya bulunamadı
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) =>
+                                    handleAssetUpload(filename, e)
+                                  }
+                                  className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-purple-600 file:text-white file:cursor-pointer hover:file:bg-purple-700"
+                                />
+                              </div>
+                            )}
+                          </motion.div>
+                        )
+                      )}
                     </div>
                   </div>
 
                   {/* Surpriz Sayfası Videoları */}
-                  <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 rounded-xl border-2 border-blue-500/30">
-                    <h3 className="text-2xl font-bold text-purple-300 mb-4 flex items-center gap-2">
-                      <span>🎬</span> Surpriz Sayfası Videoları
-                    </h3>
+                  <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-blue-500/30">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-blue-300 flex items-center gap-2">
+                        <span>🎬</span> Surpriz Sayfası Videoları
+                      </h3>
+                      <span className="text-sm text-gray-400">
+                        /assets/videos/
+                      </span>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Intro Video */}
-                      <div className="bg-gray-800 p-4 rounded-lg border-2 border-blue-500/30">
-                        <h4 className="font-semibold text-blue-300 mb-2">
-                          intro.mp4
-                        </h4>
-                        {assetStatus["intro.mp4"] ? (
-                          <>
-                            <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: public/assets/intro.mp4
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleAssetDownload("intro.mp4")}
-                                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                              >
-                                📥 İndir
-                              </button>
-                              <button
-                                onClick={() => handleAssetDelete("intro.mp4")}
-                                className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                              >
-                                🗑️ Sil
-                              </button>
+                      {[
+                        { file: "intro.mp4", label: "Giriş Videosu" },
+                        { file: "video.mp4", label: "Özel Video" },
+                      ].map(({ file, label }, index) => (
+                        <motion.div
+                          key={file}
+                          className={`p-4 rounded-lg border-2 transition-all ${
+                            assetStatus[file]
+                              ? "bg-green-900/20 border-green-500/50"
+                              : "bg-red-900/20 border-red-500/50"
+                          }`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-bold text-white mb-1">
+                                {label}
+                              </h4>
+                              <p className="text-xs text-gray-400">{file}</p>
                             </div>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: public/assets/intro.mp4 yükleyin
-                            </p>
-                            <input
-                              type="file"
-                              accept="video/*"
-                              onChange={(e) =>
-                                handleAssetUpload("intro.mp4", e)
-                              }
-                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-sm"
-                            />
-                          </>
-                        )}
-                      </div>
+                            <div className="text-2xl">
+                              {assetStatus[file] ? "✅" : "❌"}
+                            </div>
+                          </div>
 
-                      {/* Surpriz Video */}
-                      <div className="bg-gray-800 p-4 rounded-lg border-2 border-blue-500/30">
-                        <h4 className="font-semibold text-blue-300 mb-2">
-                          video.mp4
-                        </h4>
-                        {assetStatus["video.mp4"] ? (
-                          <>
-                            <p className="text-xs text-green-400 mb-2">
-                              ✅ Mevcut: public/assets/video.mp4
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleAssetDownload("video.mp4")}
-                                className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                              >
-                                📥 İndir
-                              </button>
-                              <button
-                                onClick={() => handleAssetDelete("video.mp4")}
-                                className="flex-1 px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                              >
-                                🗑️ Sil
-                              </button>
+                          {assetStatus[file] ? (
+                            <div className="space-y-2">
+                              <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
+                                ✓ Video mevcut ve oynatılabilir
+                              </div>
+                              <div className="flex gap-2">
+                                <a
+                                  href={`/assets/videos/${file}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
+                                >
+                                  ▶️ Oynat
+                                </a>
+                                <button
+                                  onClick={() => handleAssetDelete(file)}
+                                  className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </div>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-red-400 mb-2">
-                              ❌ Eksik: public/assets/video.mp4 yükleyin
-                            </p>
-                            <input
-                              type="file"
-                              accept="video/*"
-                              onChange={(e) =>
-                                handleAssetUpload("video.mp4", e)
-                              }
-                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-sm"
-                            />
-                          </>
-                        )}
-                      </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
+                                ✗ Video bulunamadı
+                              </div>
+                              <input
+                                type="file"
+                                accept="video/*"
+                                onChange={(e) => handleAssetUpload(file, e)}
+                                className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer hover:file:bg-blue-700"
+                              />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
                     </div>
                   </div>
 
                   {/* Hediyen Sayfası PDF */}
-                  <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 rounded-xl border-2 border-orange-500/30">
-                    <h3 className="text-2xl font-bold text-purple-300 mb-4 flex items-center gap-2">
-                      <span>📚</span> Hediyen Sayfası Kitabı
-                    </h3>
-                    <div className="bg-gray-800 p-4 rounded-lg border-2 border-orange-500/30 max-w-md">
-                      <h4 className="font-semibold text-orange-300 mb-2">
-                        nazin-kitabi.pdf
-                      </h4>
-                      {assetStatus["nazin-kitabi.pdf"] ? (
-                        <>
-                          <p className="text-xs text-green-400 mb-2">
-                            ✅ Mevcut: public/assets/nazin-kitabi.pdf
+                  <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-orange-500/30">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-orange-300 flex items-center gap-2">
+                        <span>📚</span> Hediyen Sayfası Kitabı
+                      </h3>
+                      <span className="text-sm text-gray-400">
+                        /assets/documents/
+                      </span>
+                    </div>
+                    <motion.div
+                      className={`p-4 rounded-lg border-2 transition-all max-w-md ${
+                        assetStatus["nazin-kitabi.pdf"]
+                          ? "bg-green-900/20 border-green-500/50"
+                          : "bg-red-900/20 border-red-500/50"
+                      }`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-bold text-white mb-1">
+                            Naz'ın Kitabı
+                          </h4>
+                          <p className="text-xs text-gray-400">
+                            nazin-kitabi.pdf
                           </p>
+                        </div>
+                        <div className="text-2xl">
+                          {assetStatus["nazin-kitabi.pdf"] ? "✅" : "❌"}
+                        </div>
+                      </div>
+
+                      {assetStatus["nazin-kitabi.pdf"] ? (
+                        <div className="space-y-2">
+                          <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
+                            ✓ PDF dosyası hazır ve indirilebilir
+                          </div>
                           <div className="flex gap-2">
-                            <button
-                              onClick={() =>
-                                handleAssetDownload("nazin-kitabi.pdf")
-                              }
-                              className="flex-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                            <a
+                              href="/assets/documents/nazin-kitabi.pdf"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 text-center"
                             >
-                              📥 İndir
-                            </button>
+                              � Aç
+                            </a>
                             <button
                               onClick={() =>
                                 handleAssetDelete("nazin-kitabi.pdf")
                               }
-                              className="flex-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                              className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
                             >
-                              🗑️ Sil
+                              🗑️
                             </button>
                           </div>
-                        </>
+                        </div>
                       ) : (
-                        <>
-                          <p className="text-xs text-red-400 mb-2">
-                            ❌ Eksik: public/assets/nazin-kitabi.pdf yükleyin
-                          </p>
+                        <div className="space-y-2">
+                          <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
+                            ✗ PDF dosyası bulunamadı
+                          </div>
                           <input
                             type="file"
                             accept="application/pdf"
                             onChange={(e) =>
                               handleAssetUpload("nazin-kitabi.pdf", e)
                             }
-                            className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-sm"
+                            className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer hover:file:bg-orange-700"
                           />
-                        </>
+                        </div>
                       )}
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
               )}
@@ -882,7 +895,9 @@ const Admin = () => {
                             <input
                               type="checkbox"
                               checked={isProtectionEnabled}
-                              onChange={(e) => handleProtectionToggle(e.target.checked)}
+                              onChange={(e) =>
+                                handleProtectionToggle(e.target.checked)
+                              }
                               className="sr-only peer"
                             />
                             <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div>
@@ -896,7 +911,9 @@ const Admin = () => {
                           <input
                             type="date"
                             value={targetDate}
-                            onChange={(e) => handleTargetDateChange(e.target.value)}
+                            onChange={(e) =>
+                              handleTargetDateChange(e.target.value)
+                            }
                             className="w-full p-3 bg-gray-700 border-2 border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                           />
                           <p className="text-xs text-gray-400 mt-1">
@@ -937,7 +954,9 @@ const Admin = () => {
                                 <input
                                   type="checkbox"
                                   checked={pageProtections[page.key]}
-                                  onChange={() => handlePageProtectionToggle(page.key)}
+                                  onChange={() =>
+                                    handlePageProtectionToggle(page.key)
+                                  }
                                   className="sr-only peer"
                                 />
                                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
