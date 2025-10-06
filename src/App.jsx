@@ -94,11 +94,8 @@ const CountdownPage = () => {
           {/* Dijital saat ışık efekti */}
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
         </div>
-        {/* Parlama efekti - sadece bir kez animate et */}
-        <div
-          className="absolute inset-0 rounded-2xl bg-cyan-500/20 blur-xl animate-pulse"
-          style={{ animationDuration: '2s' }}
-        />
+        {/* Sabit glow efekti - animasyon yok */}
+        <div className="absolute inset-0 rounded-2xl bg-cyan-500/10 blur-xl pointer-events-none" />
       </div>
       {/* Label */}
       <p className="text-cyan-300 text-sm md:text-base font-semibold mt-3 uppercase tracking-widest">
