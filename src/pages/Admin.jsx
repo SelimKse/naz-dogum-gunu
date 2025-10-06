@@ -34,8 +34,6 @@ const Admin = () => {
   // Upload progress state
   const [uploadProgress, setUploadProgress] = useState({});
 
-  const [uploadedPhotos, setUploadedPhotos] = useState([]);
-  const [uploadedVideos, setUploadedVideos] = useState([]);
   const [timelineEvents, setTimelineEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({
     date: "",
@@ -97,21 +95,25 @@ const Admin = () => {
 
       // Fiziksel dosyaları kontrol et - GET ile tam içerik iste
       await Promise.all(
-        Object.entries(assetPaths).map(async ([filename, path]) => {  
+        Object.entries(assetPaths).map(async ([filename, path]) => {
           try {
             const response = await fetch(path, {
               method: "GET",
               cache: "no-cache",
             });
-            
+
             // response.ok kontrolü yeterli değil - content-type'a da bak
             const contentType = response.headers.get("content-type") || "";
             const isHtml = contentType.includes("text/html");
-            
+
             // Eğer HTML döndüyse (404 sayfası) dosya yok demektir
             newStatus[filename] = response.ok && !isHtml;
-            
-            console.log(`${newStatus[filename] ? "✅" : "❌"} ${filename}: ${path} (${response.status}, ${contentType})`);
+
+            console.log(
+              `${newStatus[filename] ? "✅" : "❌"} ${filename}: ${path} (${
+                response.status
+              }, ${contentType})`
+            );
           } catch (error) {
             newStatus[filename] = false;
             console.log(`❌ ${filename}: Hata - ${error.message}`);
@@ -121,7 +123,6 @@ const Admin = () => {
 
       setAssetStatus(newStatus);
       setIsCheckingAssets(false);
-      console.log("📊 Fiziksel Asset Durumu:", newStatus);
     };
 
     if (isAuthenticated) {
@@ -247,95 +248,125 @@ const Admin = () => {
     });
   };
 
-  // Asset yükleme fonksiyonu - Manuel indirme
+  // Asset yükleme fonksiyonu - Otomatik sunucuya yükleme
   const handleAssetUpload = async (filename, event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Dosya türüne göre hedef klasör belirle
-    const pathMap = {
-      "photo1.png": "public/assets/images/photos/",
-      "photo2.png": "public/assets/images/photos/",
-      "photo3.png": "public/assets/images/photos/",
-      "intro.mp4": "public/assets/videos/",
-      "video.mp4": "public/assets/videos/",
-      "nazin-kitabi.pdf": "public/assets/documents/",
-    };
-
-    const targetPath = pathMap[filename] || "public/assets/";
-
     // Progress başlat
     setUploadProgress((prev) => ({ ...prev, [filename]: 0 }));
 
-    // Simüle edilmiş upload progress (gerçek backend olsa XMLHttpRequest kullanılırdı)
-    const simulateProgress = setInterval(() => {
-      setUploadProgress((prev) => {
-        const current = prev[filename] || 0;
-        if (current >= 90) {
-          clearInterval(simulateProgress);
-          return prev;
-        }
-        return { ...prev, [filename]: current + 10 };
-      });
-    }, 100);
-
     try {
-      // Dosyayı indirme linki oluştur (doğru isimle)
-      const url = URL.createObjectURL(file);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // FormData ile dosyayı hazırla
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("filename", filename);
 
-      // Progress tamamla
-      setTimeout(() => {
+      // XMLHttpRequest ile gerçek progress tracking
+      const xhr = new XMLHttpRequest();
+
+      // Progress event'i
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress((prev) => ({ ...prev, [filename]: percentComplete }));
+        }
+      });
+
+      // Upload promise'i
+      const uploadPromise = new Promise((resolve, reject) => {
+        xhr.addEventListener("load", () => {
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response);
+          } else {
+            reject(new Error(xhr.statusText || "Upload failed"));
+          }
+        });
+
+        xhr.addEventListener("error", () => {
+          reject(new Error("Network error"));
+        });
+
+        xhr.open("POST", "/api/upload-asset");
+        xhr.send(formData);
+      });
+
+      const response = await uploadPromise;
+
+      // Upload başarılı
+      if (response.success) {
+        // Progress'i 100'de tut
         setUploadProgress((prev) => ({ ...prev, [filename]: 100 }));
+        
+        // 1 saniye sonra temizle
         setTimeout(() => {
           setUploadProgress((prev) => {
             const newProgress = { ...prev };
             delete newProgress[filename];
             return newProgress;
           });
+          
+          // Asset durumunu güncelle
+          setAssetStatus((prev) => ({ ...prev, [filename]: true }));
         }, 1000);
-      }, 200);
 
-      showModal(
-        "Manuel Yükleme",
-        `✅ ${filename} indirildi!\n\n📁 Bu dosyayı şu klasöre kopyala:\n${targetPath}\n\nDosya adı: ${filename}`,
-        "info"
-      );
+        showModal(
+          "Başarılı",
+          `✅ ${filename} başarıyla sunucuya yüklendi!\n\nDosya otomatik olarak doğru klasöre kaydedildi.`,
+          "success"
+        );
+      } else {
+        throw new Error(response.error || "Upload failed");
+      }
     } catch (error) {
-      clearInterval(simulateProgress);
+      console.error("Upload error:", error);
+      
+      // Progress'i temizle
       setUploadProgress((prev) => {
         const newProgress = { ...prev };
         delete newProgress[filename];
         return newProgress;
       });
-      showModal("Hata", "Dosya indirilemedi!", "error");
+
+      showModal(
+        "Hata", 
+        `Dosya yüklenemedi!\n\nHata: ${error.message}`,
+        "error"
+      );
     }
   };
 
-  // Asset silme fonksiyonu - Manuel silme talimatı
+  // Asset silme fonksiyonu - Otomatik silme
   const handleAssetDelete = (filename) => {
-    // Dosya türüne göre hedef klasör belirle
-    const pathMap = {
-      "photo1.png": "public/assets/images/photos/",
-      "photo2.png": "public/assets/images/photos/",
-      "photo3.png": "public/assets/images/photos/",
-      "intro.mp4": "public/assets/videos/",
-      "video.mp4": "public/assets/videos/",
-      "nazin-kitabi.pdf": "public/assets/documents/",
-    };
-
-    const targetPath = pathMap[filename] || "public/assets/";
-
     showModal(
-      "Manuel Silme",
-      `${filename} dosyasını silmek için:\n\n📁 Klasör: ${targetPath}\n📄 Dosya: ${filename}\n\nBu dosyayı File Explorer'dan manuel olarak sil.`,
-      "info"
+      "Onay Gerekli",
+      `${filename} dosyasını kalıcı olarak silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`,
+      "question",
+      async () => {
+        try {
+          const response = await fetch("/api/delete-asset", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ filename }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Asset durumunu güncelle
+            setAssetStatus((prev) => ({ ...prev, [filename]: false }));
+            showModal("Başarılı", `${filename} başarıyla silindi!`, "success");
+          } else {
+            showModal("Hata", `Silme hatası: ${data.error}`, "error");
+          }
+        } catch (error) {
+          console.error("Silme hatası:", error);
+          showModal("Hata", "Dosya silinemedi!", "error");
+        }
+      }
     );
   };
 
@@ -352,38 +383,6 @@ const Admin = () => {
 
     // Yeni sekmede aç
     window.open(pathMap[filename] || `/assets/${filename}`, "_blank");
-  };
-
-  const handlePhotoUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const newPhotos = files.map((file) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      url: URL.createObjectURL(file),
-      file: file,
-      type: "image",
-    }));
-    setUploadedPhotos((prev) => [...prev, ...newPhotos]);
-  };
-
-  const handleVideoUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const newVideos = files.map((file) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      url: URL.createObjectURL(file),
-      file: file,
-      type: "video",
-    }));
-    setUploadedVideos((prev) => [...prev, ...newVideos]);
-  };
-
-  const removePhoto = (id) => {
-    setUploadedPhotos((prev) => prev.filter((file) => file.id !== id));
-  };
-
-  const removeVideo = (id) => {
-    setUploadedVideos((prev) => prev.filter((file) => file.id !== id));
   };
 
   const addTimelineEvent = async () => {
@@ -484,32 +483,6 @@ const Admin = () => {
     linkElement.setAttribute("href", dataUri);
     linkElement.setAttribute("download", exportFileDefaultName);
     linkElement.click();
-  };
-
-  const downloadAllPhotos = () => {
-    uploadedPhotos.forEach((photo, index) => {
-      setTimeout(() => {
-        const link = document.createElement("a");
-        link.href = photo.url;
-        link.download = photo.name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, index * 100);
-    });
-  };
-
-  const downloadAllVideos = () => {
-    uploadedVideos.forEach((video, index) => {
-      setTimeout(() => {
-        const link = document.createElement("a");
-        link.href = video.url;
-        link.download = video.name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, index * 100);
-    });
   };
 
   if (!isAuthenticated) {
@@ -639,26 +612,17 @@ const Admin = () => {
                         {isCheckingAssets && (
                           <motion.span
                             animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 1,
+                              ease: "linear",
+                            }}
                             className="text-xl"
                           >
                             ⏳
                           </motion.span>
                         )}
                       </h3>
-                      <button
-                        onClick={() => {
-                          console.clear();
-                          console.log("🔍 MANUEL ASSET KONTROLÜ");
-                          console.log("Current assetStatus:", assetStatus);
-                          Object.entries(assetStatus).forEach(([name, status]) => {
-                            console.log(`${status ? "✅" : "❌"} ${name}`);
-                          });
-                        }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-                      >
-                        🔍 Console'u Kontrol Et
-                      </button>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-gray-800/50 p-4 rounded-lg text-center">
@@ -742,7 +706,9 @@ const Admin = () => {
                                 </div>
                                 <div className="flex gap-2">
                                   <button
-                                    onClick={() => handleAssetDownload(filename)}
+                                    onClick={() =>
+                                      handleAssetDownload(filename)
+                                    }
                                     className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                                   >
                                     👁️ Görüntüle
@@ -766,7 +732,9 @@ const Admin = () => {
                                       <motion.div
                                         className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full"
                                         initial={{ width: 0 }}
-                                        animate={{ width: `${uploadProgress[filename]}%` }}
+                                        animate={{
+                                          width: `${uploadProgress[filename]}%`,
+                                        }}
                                         transition={{ duration: 0.3 }}
                                       />
                                     </div>
@@ -861,7 +829,9 @@ const Admin = () => {
                                     <motion.div
                                       className="bg-gradient-to-r from-blue-600 to-cyan-600 h-2 rounded-full"
                                       initial={{ width: 0 }}
-                                      animate={{ width: `${uploadProgress[file]}%` }}
+                                      animate={{
+                                        width: `${uploadProgress[file]}%`,
+                                      }}
                                       transition={{ duration: 0.3 }}
                                     />
                                   </div>
@@ -952,12 +922,15 @@ const Admin = () => {
                                 <motion.div
                                   className="bg-gradient-to-r from-orange-600 to-red-600 h-2 rounded-full"
                                   initial={{ width: 0 }}
-                                  animate={{ width: `${uploadProgress["nazin-kitabi.pdf"]}%` }}
+                                  animate={{
+                                    width: `${uploadProgress["nazin-kitabi.pdf"]}%`,
+                                  }}
                                   transition={{ duration: 0.3 }}
                                 />
                               </div>
                               <p className="text-xs text-orange-400 text-center">
-                                İndiriliyor... {uploadProgress["nazin-kitabi.pdf"]}%
+                                İndiriliyor...{" "}
+                                {uploadProgress["nazin-kitabi.pdf"]}%
                               </p>
                             </div>
                           ) : (
@@ -1086,156 +1059,6 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {activeTab === "photos-old-removed" && (
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border-2 border-purple-200">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                      <span>📸</span> Fotoğraf Yükle
-                    </h3>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="w-full p-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-naz-purple-500 bg-white"
-                    />
-                    <p className="text-sm text-gray-600 mt-2">
-                      💡 Birden fazla fotoğraf seçebilirsiniz (JPEG, PNG, GIF)
-                    </p>
-                  </div>
-
-                  {uploadedPhotos.length > 0 && (
-                    <div>
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-semibold text-gray-800">
-                          📷 Yüklenen Fotoğraflar ({uploadedPhotos.length})
-                        </h3>
-                        <button
-                          onClick={downloadAllPhotos}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-                        >
-                          <span>📥</span> Tümünü İndir
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {uploadedPhotos.map((photo) => (
-                          <motion.div
-                            key={photo.id}
-                            className="relative group"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <img
-                              src={photo.url}
-                              alt={photo.name}
-                              className="w-full h-40 object-cover rounded-lg shadow-lg border-2 border-purple-200"
-                            />
-                            <button
-                              onClick={() => removePhoto(photo.id)}
-                              className="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-lg"
-                            >
-                              ×
-                            </button>
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                              <p className="truncate">{photo.name}</p>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {uploadedPhotos.length === 0 && (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                      <span className="text-6xl mb-4 block">📸</span>
-                      <p className="text-gray-600 text-lg">
-                        Henüz fotoğraf yüklenmedi
-                      </p>
-                      <p className="text-gray-500 text-sm mt-2">
-                        Yukarıdaki alandan fotoğraf yükleyebilirsiniz
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeTab === "videos" && (
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-blue-200">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                      <span>🎥</span> Video Yükle
-                    </h3>
-                    <input
-                      type="file"
-                      multiple
-                      accept="video/*"
-                      onChange={handleVideoUpload}
-                      className="w-full p-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-naz-blue-500 bg-white"
-                    />
-                    <p className="text-sm text-gray-600 mt-2">
-                      💡 Birden fazla video seçebilirsiniz (MP4, MOV, AVI, WebM)
-                    </p>
-                  </div>
-
-                  {uploadedVideos.length > 0 && (
-                    <div>
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-semibold text-gray-800">
-                          🎬 Yüklenen Videolar ({uploadedVideos.length})
-                        </h3>
-                        <button
-                          onClick={downloadAllVideos}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-                        >
-                          <span>📥</span> Tümünü İndir
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {uploadedVideos.map((video) => (
-                          <motion.div
-                            key={video.id}
-                            className="relative group"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <video
-                              src={video.url}
-                              className="w-full h-48 object-cover rounded-lg shadow-lg border-2 border-blue-200"
-                              controls
-                            />
-                            <button
-                              onClick={() => removeVideo(video.id)}
-                              className="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-lg z-10"
-                            >
-                              ×
-                            </button>
-                            <div className="mt-2 p-2 bg-gray-50 rounded">
-                              <p className="text-xs text-gray-600 truncate">
-                                {video.name}
-                              </p>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {uploadedVideos.length === 0 && (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                      <span className="text-6xl mb-4 block">🎥</span>
-                      <p className="text-gray-600 text-lg">
-                        Henüz video yüklenmedi
-                      </p>
-                      <p className="text-gray-500 text-sm mt-2">
-                        Yukarıdaki alandan video yükleyebilirsiniz
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
 
