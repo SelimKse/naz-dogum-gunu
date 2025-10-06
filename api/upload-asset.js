@@ -1,50 +1,52 @@
-import { put } from '@vercel/blob';
+import { put } from "@vercel/blob";
 
 export const config = {
   api: {
     bodyParser: false,
+    responseLimit: false, // Büyük dosyalar için
   },
+  maxDuration: 300, // 5 dakika timeout (Hobby plan için 10s, Pro için 300s)
 };
 
 // Multipart form data parser
 function parseMultipartFormData(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    
-    req.on('data', (chunk) => {
+
+    req.on("data", (chunk) => {
       chunks.push(chunk);
     });
-    
-    req.on('end', () => {
+
+    req.on("end", () => {
       try {
         const buffer = Buffer.concat(chunks);
-        const boundary = req.headers['content-type']?.split('boundary=')[1];
-        
+        const boundary = req.headers["content-type"]?.split("boundary=")[1];
+
         if (!boundary) {
-          return reject(new Error('No boundary found'));
+          return reject(new Error("No boundary found"));
         }
-        
-        const parts = buffer.toString('binary').split(`--${boundary}`);
+
+        const parts = buffer.toString("binary").split(`--${boundary}`);
         const result = { fields: {}, files: {} };
-        
+
         for (const part of parts) {
-          if (part.includes('Content-Disposition')) {
+          if (part.includes("Content-Disposition")) {
             const nameMatch = part.match(/name="([^"]+)"/);
             const filenameMatch = part.match(/filename="([^"]+)"/);
-            
+
             if (nameMatch) {
               const fieldName = nameMatch[1];
-              const contentStart = part.indexOf('\r\n\r\n') + 4;
-              const contentEnd = part.lastIndexOf('\r\n');
-              
+              const contentStart = part.indexOf("\r\n\r\n") + 4;
+              const contentEnd = part.lastIndexOf("\r\n");
+
               if (filenameMatch) {
                 const fileContent = Buffer.from(
                   part.substring(contentStart, contentEnd),
-                  'binary'
+                  "binary"
                 );
                 result.files[fieldName] = {
                   filename: filenameMatch[1],
-                  data: fileContent
+                  data: fileContent,
                 };
               } else {
                 const fieldValue = part.substring(contentStart, contentEnd);
@@ -53,14 +55,14 @@ function parseMultipartFormData(req) {
             }
           }
         }
-        
+
         resolve(result);
       } catch (error) {
         reject(error);
       }
     });
-    
-    req.on('error', reject);
+
+    req.on("error", reject);
   });
 }
 
@@ -89,10 +91,10 @@ export default async function handler(req, res) {
 
   try {
     console.log("📨 Vercel Blob upload request received");
-    
+
     // Parse multipart form data
     const { fields, files } = await parseMultipartFormData(req);
-    
+
     const filename = fields.filename;
     const fileData = files.file;
 
@@ -100,9 +102,9 @@ export default async function handler(req, res) {
     console.log("📦 File size:", fileData?.data?.length || 0);
 
     if (!fileData || !filename) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Dosya veya dosya adı eksik" 
+      return res.status(400).json({
+        success: false,
+        error: "Dosya veya dosya adı eksik",
       });
     }
 
@@ -117,9 +119,9 @@ export default async function handler(req, res) {
     };
 
     if (!allowedFiles[filename]) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Geçersiz dosya adı" 
+      return res.status(400).json({
+        success: false,
+        error: "Geçersiz dosya adı",
       });
     }
 
@@ -129,24 +131,29 @@ export default async function handler(req, res) {
 
     // Vercel Blob token'ı environment variable'dan al
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    
+
     if (!token) {
       console.error("❌ BLOB_READ_WRITE_TOKEN bulunamadı!");
-      console.log("📋 Mevcut env vars:", Object.keys(process.env).filter(k => k.includes('BLOB')));
-      return res.status(500).json({ 
-        success: false, 
-        error: "BLOB_READ_WRITE_TOKEN environment variable yapılandırılmamış" 
+      console.log(
+        "📋 Mevcut env vars:",
+        Object.keys(process.env).filter((k) => k.includes("BLOB"))
+      );
+      return res.status(500).json({
+        success: false,
+        error: "BLOB_READ_WRITE_TOKEN environment variable yapılandırılmamış",
       });
     }
 
     console.log("🔑 Token bulundu, yükleme başlıyor...");
 
     // Vercel Blob'a yükle (token ile)
+    // put() otomatik olarak büyük dosyalar için multipart upload kullanır (1GB'a kadar)
     const blob = await put(blobPath, fileData.data, {
-      access: 'public', // Public erişim
+      access: "public", // Public erişim
       addRandomSuffix: false, // Dosya adını korumak için
       token: token, // Token'ı manuel olarak geç
       allowOverwrite: true, // Var olan dosyanın üzerine yaz
+      multipart: true, // Büyük dosyalar için multipart upload aktif
     });
 
     console.log("✅ Vercel Blob'a yüklendi:", blob.url);
@@ -159,12 +166,11 @@ export default async function handler(req, res) {
       downloadUrl: blob.downloadUrl,
       pathname: blob.pathname,
     });
-
   } catch (error) {
     console.error("❌ Upload error:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: "Dosya yüklenemedi: " + error.message 
+    res.status(500).json({
+      success: false,
+      error: "Dosya yüklenemedi: " + error.message,
     });
   }
 }

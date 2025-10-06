@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Modal from "../components/Modal";
+import { upload } from "@vercel/blob/client";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -266,71 +267,54 @@ const Admin = () => {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Dosya boyutu kontrolü (1GB = 1073741824 bytes)
+    const maxSize = 1024 * 1024 * 1024; // 1GB
+    if (file.size > maxSize) {
+      showModal(
+        "Dosya Çok Büyük",
+        `${filename} maksimum 1GB olabilir (şu an: ${(file.size / 1024 / 1024).toFixed(2)} MB)`,
+        "error"
+      );
+      return;
+    }
+
+    console.log(`📦 ${filename} yükleniyor (${(file.size / 1024 / 1024).toFixed(2)} MB)...`);
+
     // Progress başlat
     setUploadProgress((prev) => ({ ...prev, [filename]: 0 }));
 
     try {
-      // FormData ile dosyayı hazırla
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("filename", filename);
-
-      // XMLHttpRequest ile gerçek progress tracking
-      const xhr = new XMLHttpRequest();
-
-      // Progress event'i
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
+      // Vercel Blob'un client-side upload'ı - otomatik multipart (1GB'a kadar)
+      const newBlob = await upload(filename, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload-chunk",
+        onUploadProgress: ({ percentage }) => {
           setUploadProgress((prev) => ({
             ...prev,
-            [filename]: percentComplete,
+            [filename]: Math.round(percentage),
           }));
-        }
+        },
       });
 
-      // Upload promise'i
-      const uploadPromise = new Promise((resolve, reject) => {
-        xhr.addEventListener("load", () => {
-          if (xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            resolve(response);
-          } else {
-            reject(new Error(xhr.statusText || "Upload failed"));
-          }
+      console.log("✅ Upload tamamlandı:", newBlob.url);
+
+      // Progress'i 100'de tut
+      setUploadProgress((prev) => ({ ...prev, [filename]: 100 }));
+
+      // 1 saniye sonra temizle ve güncelle
+      setTimeout(() => {
+        setUploadProgress((prev) => {
+          const newProgress = { ...prev };
+          delete newProgress[filename];
+          return newProgress;
         });
 
-        xhr.addEventListener("error", () => {
-          reject(new Error("Network error"));
-        });
+        // Asset durumunu güncelle
+        setAssetStatus((prev) => ({ ...prev, [filename]: true }));
+        setAssetUrls((prev) => ({ ...prev, [filename]: newBlob.url }));
+      }, 1000);
 
-        xhr.open("POST", "/api/upload-asset");
-        xhr.send(formData);
-      });
-
-      const response = await uploadPromise;
-
-      // Upload başarılı
-      if (response.success) {
-        // Progress'i 100'de tut
-        setUploadProgress((prev) => ({ ...prev, [filename]: 100 }));
-
-        // 1 saniye sonra temizle ve güncelle
-        setTimeout(() => {
-          setUploadProgress((prev) => {
-            const newProgress = { ...prev };
-            delete newProgress[filename];
-            return newProgress;
-          });
-
-          // Asset durumunu güncelle
-          setAssetStatus((prev) => ({ ...prev, [filename]: true }));
-        }, 1000);
-
-        showModal("Başarılı", `${filename} Vercel Blob'a yüklendi!`, "success");
-      } else {
-        throw new Error(response.error || "Upload failed");
-      }
+      showModal("Başarılı", `${filename} Vercel Blob'a yüklendi! (${(file.size / 1024 / 1024).toFixed(2)} MB)`, "success");
     } catch (error) {
       console.error("Upload error:", error);
 
@@ -846,7 +830,7 @@ const Admin = () => {
                                     />
                                   </div>
                                   <p className="text-xs text-blue-400 text-center">
-                                    İndiriliyor... {uploadProgress[file]}%
+                                    Yükleniyor... {uploadProgress[file]}%
                                   </p>
                                 </div>
                               ) : (
@@ -939,7 +923,7 @@ const Admin = () => {
                                 />
                               </div>
                               <p className="text-xs text-orange-400 text-center">
-                                İndiriliyor...{" "}
+                                Yükleniyor...{" "}
                                 {uploadProgress["nazin-kitabi.pdf"]}%
                               </p>
                             </div>
