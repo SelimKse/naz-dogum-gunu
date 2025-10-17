@@ -1,22 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { motion } from "framer-motion";
+import { useTimeline } from "../hooks/useTimeline";
+import LoadingSpinner from "../components/LoadingSpinner";
+import ErrorMessage from "../components/ErrorMessage";
 
 const Timeline = () => {
-  const [timelineEvents, setTimelineEvents] = useState([]);
+  const { timelineEvents, isLoading, error } = useTimeline();
 
-  useEffect(() => {
-    fetch("/api/timeline")
-      .then((res) => {
-        if (!res.ok)
-          throw new Error("Timeline yüklenemedi: " + res.status);
-        return res.json();
-      })
-      .then((data) => setTimelineEvents(data))
-      .catch((err) => {
-        console.error(err);
-        setTimelineEvents([]);
-      });
-  }, []);
+  if (isLoading) {
+    return (
+      <LoadingSpinner 
+        size="xlarge" 
+        message="Timeline yükleniyor..." 
+        color="purple"
+        fullScreen={true}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-800 p-4">
+        <ErrorMessage 
+          error={error}
+          title="Timeline yüklenirken hata oluştu"
+          size="large"
+          onRetry={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-20 px-4">

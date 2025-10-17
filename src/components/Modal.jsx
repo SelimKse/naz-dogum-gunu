@@ -1,5 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import PropTypes from "prop-types";
+import { modalPropTypes } from "../utils/propTypes";
 
 const Modal = ({ isOpen, onClose, title, message, type = "info", onConfirm }) => {
   if (!isOpen) return null;
@@ -108,5 +110,7 @@ const Modal = ({ isOpen, onClose, title, message, type = "info", onConfirm }) =>
     </AnimatePresence>
   );
 };
+
+Modal.propTypes = modalPropTypes;
 
 export default Modal;

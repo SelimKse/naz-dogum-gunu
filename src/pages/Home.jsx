@@ -1,54 +1,67 @@
-import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React from "react";
+import { motion } from "framer-motion";
+import Confetti from "../components/Confetti";
+import PhotoCard from "../components/PhotoCard";
+import CharacterCard from "../components/CharacterCard";
 
 const Home = () => {
-  const [confetti, setConfetti] = useState([]);
+  // Memoized photo data
+  const photos = React.useMemo(() => [
+    {
+      src: "/assets/images/photos/photo1.jpg",
+      alt: "Güzel Anılar",
+      title: "Güzel Anılar",
+      placeholderIcon: "📸",
+      placeholderText: "Fotoğraf eklenecek"
+    },
+    {
+      src: "/assets/images/photos/photo2.jpg",
+      alt: "Doğum Günü Kutlaması",
+      title: "Doğum Günü Kutlaması",
+      placeholderIcon: "🎂",
+      placeholderText: "Doğum günü fotoğrafları"
+    },
+    {
+      src: "/assets/images/photos/photo3.jpg",
+      alt: "Özel Günler",
+      title: "Özel Günler",
+      placeholderIcon: "🌟",
+      placeholderText: "Özel günlerin fotoğrafları"
+    }
+  ], []);
 
-  useEffect(() => {
-    // Konfeti parçacıkları oluştur - Kelebek emojileri
-    const confettiPieces = Array(50)
-      .fill()
-      .map((_, i) => ({
-        id: i,
-        x:
-          Math.random() *
-          (typeof window !== "undefined" ? window.innerWidth : 1200),
-        delay: Math.random() * 3,
-        emoji: ["🦋"][Math.floor(Math.random() * 3)],
-      }));
-    setConfetti(confettiPieces);
-  }, []);
+  // Memoized character data
+  const characters = React.useMemo(() => [
+    {
+      src: "/assets/images/icons/stitch.png",
+      alt: "Stitch",
+      name: "Stitch",
+      borderColor: "border-purple-500/20"
+    },
+    {
+      src: "/assets/images/icons/lilo.png",
+      alt: "Lilo",
+      name: "Lilo",
+      borderColor: "border-pink-500/20"
+    },
+    {
+      src: "/assets/images/icons/hawaii.png",
+      alt: "Hawaii",
+      name: "Hawaii",
+      borderColor: "border-purple-500/20"
+    },
+    {
+      src: "/assets/images/icons/ohana.png",
+      alt: "Ohana",
+      name: "Ohana",
+      borderColor: "border-purple-500/20"
+    }
+  ], []);
 
   return (
     <div className="h-screen overflow-y-scroll snap-y snap-mandatory">
       {/* Konfeti Animasyonu - Global */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        {confetti.map((piece) => (
-          <motion.div
-            key={piece.id}
-            className="absolute text-lg filter-none"
-            style={{
-              left: piece.x,
-            }}
-            initial={{ y: -10, opacity: 0, rotate: 0 }}
-            animate={{
-              y: typeof window !== "undefined" ? window.innerHeight + 100 : 800,
-              opacity: [0, 1, 1, 0],
-              rotate: [0, 180, 360],
-              x: [0, 20, -20, 0],
-            }}
-            transition={{
-              duration: 4,
-              delay: piece.delay,
-              repeat: Infinity,
-              repeatDelay: Math.random() * 3 + 2,
-              ease: "easeInOut",
-            }}
-          >
-            {piece.emoji}
-          </motion.div>
-        ))}
-      </div>
+      <Confetti count={50} />
 
       {/* İlk Section - Ana İçerik ve İconlar */}
       <section className="h-screen flex items-center justify-center snap-start relative">
@@ -69,9 +82,11 @@ const Home = () => {
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
+              role="heading"
+              aria-level="1"
             >
               <span className="gradient-text">İyi ki Doğdun Naz</span>
-              <span className="inline-block">🎂</span>
+              <span className="inline-block" aria-label="doğum günü pastası emojisi">🎂</span>
             </motion.h1>
 
             <motion.p
@@ -177,105 +192,24 @@ const Home = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <h2 className="text-3xl font-bold text-purple-300 mb-8">
-              🎉 Özel Anılar 🎉
+            <h2 className="text-3xl font-bold text-purple-300 mb-8" role="heading" aria-level="2">
+              <span aria-label="kutlama emojisi">🎉</span> Özel Anılar <span aria-label="kutlama emojisi">🎉</span>
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              <motion.div
-                className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:shadow-xl transition-shadow border border-purple-500/20"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="bg-gray-950 rounded-xl h-64 mb-4 overflow-hidden">
-                  <img
-                    src="/assets/images/photos/photo1.jpg"
-                    alt="Güzel Anılar"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                      e.target.nextElementSibling.style.display = "flex";
-                    }}
-                  />
-                  <div
-                    className="w-full h-full flex items-center justify-center border-2 border-dashed border-purple-500/30"
-                    style={{ display: "none" }}
-                  >
-                    <div className="text-center">
-                      <span className="text-4xl filter-none mb-2 block">
-                        📸
-                      </span>
-                      <p className="text-purple-400 text-sm">
-                        Fotoğraf eklenecek
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-center text-purple-300 font-medium">
-                  Güzel Anılar
-                </p>
-              </motion.div>
-
-              <motion.div
-                className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:shadow-xl transition-shadow border border-pink-500/20"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="bg-gray-950 rounded-xl h-64 mb-4 overflow-hidden">
-                  <img
-                    src="/assets/images/photos/photo2.jpg"
-                    alt="Doğum Günü Kutlaması"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                      e.target.nextElementSibling.style.display = "flex";
-                    }}
-                  />
-                  <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-pink-500/30" style={{ display: "none" }}>
-                    <div className="text-center">
-                      <span className="text-4xl filter-none mb-2 block">
-                        🎂
-                      </span>
-                      <p className="text-pink-400 text-sm">
-                        Doğum günü fotoğrafları
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-center text-purple-300 font-medium">
-                  Doğum Günü Kutlaması
-                </p>
-              </motion.div>
-
-              <motion.div
-                className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:shadow-xl transition-shadow border border-purple-500/20"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="bg-gray-950 rounded-xl h-64 mb-4 overflow-hidden">
-                  <img
-                    src="/assets/images/photos/photo3.jpg"
-                    alt="Özel Günler"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                      e.target.nextElementSibling.style.display = "flex";
-                    }}
-                  />
-                  <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-purple-500/30" style={{ display: "none" }}>
-                    <div className="text-center">
-                      <span className="text-4xl filter-none mb-2 block">
-                        🌟
-                      </span>
-                      <p className="text-purple-400 text-sm">
-                        Özel günlerin fotoğrafları
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-center text-purple-300 font-medium">
-                  Özel Günler
-                </p>
-              </motion.div>
+              {photos.map((photo, index) => (
+                <PhotoCard
+                  key={photo.src}
+                  src={photo.src}
+                  alt={photo.alt}
+                  title={photo.title}
+                  index={index}
+                  borderColor={index === 1 ? "border-pink-500/20" : "border-purple-500/20"}
+                  shadowColor={index === 1 ? "shadow-pink-500/20" : "shadow-purple-500/20"}
+                  hoverShadowColor={index === 1 ? "hover:shadow-pink-500/40" : "hover:shadow-purple-500/40"}
+                  placeholderIcon={photo.placeholderIcon}
+                  placeholderText={photo.placeholderText}
+                />
+              ))}
             </div>
           </motion.div>
 
@@ -286,78 +220,15 @@ const Home = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1 }}
           >
-            <motion.div
-              className="text-center p-4 bg-gray-900/80 backdrop-blur-sm rounded-2xl shadow-lg border border-purple-500/20"
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
-                <img
-                  src="/assets/images/icons/stitch.png"
-                  alt="Stitch"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextElementSibling.style.display = "block";
-                  }}
-                />
-              </div>
-              <p className="text-sm text-purple-300 font-medium">Stitch</p>
-            </motion.div>
-            <motion.div
-              className="text-center p-4 bg-gray-900/80 backdrop-blur-sm rounded-2xl shadow-lg border border-pink-500/20"
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
-                <img
-                  src="/assets/images/icons/lilo.png"
-                  alt="Lilo"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextElementSibling.style.display = "block";
-                  }}
-                />
-              </div>
-              <p className="text-sm text-purple-300 font-medium">Lilo</p>
-            </motion.div>
-            <motion.div
-              className="text-center p-4 bg-gray-900/80 backdrop-blur-sm rounded-2xl shadow-lg border border-purple-500/20"
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
-                <img
-                  src="/assets/images/icons/hawaii.png"
-                  alt="Hawaii"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextElementSibling.style.display = "block";
-                  }}
-                />
-              </div>
-              <p className="text-sm text-purple-300 font-medium">Hawaii</p>
-            </motion.div>
-            <motion.div
-              className="text-center p-4 bg-gray-900/80 backdrop-blur-sm rounded-2xl shadow-lg border border-purple-500/20"
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl h-24 w-24 mx-auto mb-3 flex items-center justify-center overflow-hidden">
-                <img
-                  src="/assets/images/icons/ohana.png"
-                  alt="Ohana"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextElementSibling.style.display = "block";
-                  }}
-                />
-              </div>
-              <p className="text-sm text-purple-300 font-medium">Ohana</p>
-            </motion.div>
+            {characters.map((character) => (
+              <CharacterCard
+                key={character.src}
+                src={character.src}
+                alt={character.alt}
+                name={character.name}
+                borderColor={character.borderColor}
+              />
+            ))}
           </motion.div>
         </div>
       </section>

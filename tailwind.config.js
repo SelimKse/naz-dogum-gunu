@@ -46,9 +46,36 @@ export default {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-10px)' },
         }
+      },
+      // Accessibility utilities
+      screens: {
+        'sr-only': 'screen-reader-only',
       }
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.sr-only': {
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: '0',
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: '0',
+        },
+        '.focus-visible': {
+          '&:focus-visible': {
+            outline: '2px solid #8b5cf6',
+            outlineOffset: '2px',
+          },
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 }
 

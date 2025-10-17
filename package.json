@@ -19,6 +19,7 @@
     "framer-motion": "^12.23.22",
     "mongodb": "^6.3.0",
     "multer": "^2.0.2",
+    "prop-types": "^15.8.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.3",
