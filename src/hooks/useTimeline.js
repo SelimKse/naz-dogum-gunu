@@ -17,7 +17,7 @@ export const useTimeline = () => {
         }
 
         const data = await response.json();
-        setTimelineEvents(data);
+        setTimelineEvents(data.events || []);
       } catch (err) {
         console.error("Timeline yükleme hatası:", err);
         setError(err.message);
