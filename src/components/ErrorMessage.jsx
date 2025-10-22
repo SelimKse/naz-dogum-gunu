@@ -1,25 +1,25 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import PropTypes from 'prop-types';
-import { errorMessagePropTypes } from '../utils/propTypes';
+import React from "react";
+import { motion } from "framer-motion";
+import PropTypes from "prop-types";
+import { errorMessagePropTypes } from "../utils/propTypes";
 
-const ErrorMessage = ({ 
-  error, 
-  onRetry, 
-  title = 'Bir hata oluştu',
+const ErrorMessage = ({
+  error,
+  onRetry,
+  title = "Bir hata oluştu",
   showDetails = false,
-  size = 'medium'
+  size = "medium",
 }) => {
   const sizeClasses = {
-    small: 'p-4',
-    medium: 'p-6',
-    large: 'p-8'
+    small: "p-4",
+    medium: "p-6",
+    large: "p-8",
   };
 
   const iconSizes = {
-    small: 'text-3xl',
-    medium: 'text-4xl',
-    large: 'text-6xl'
+    small: "text-3xl",
+    medium: "text-4xl",
+    large: "text-6xl",
   };
 
   return (
@@ -31,25 +31,23 @@ const ErrorMessage = ({
     >
       <motion.div
         className={`${iconSizes[size]} mb-4`}
-        animate={{ 
+        animate={{
           rotate: [0, 10, -10, 0],
-          scale: [1, 1.1, 1]
+          scale: [1, 1.1, 1],
         }}
-        transition={{ 
-          duration: 2, 
+        transition={{
+          duration: 2,
           repeat: Infinity,
-          ease: "easeInOut"
+          ease: "easeInOut",
         }}
       >
         ❌
       </motion.div>
-      
-      <h3 className="text-lg font-bold text-red-400 mb-2">
-        {title}
-      </h3>
-      
+
+      <h3 className="text-lg font-bold text-red-400 mb-2">{title}</h3>
+
       <p className="text-red-300 mb-4">
-        {error?.message || error || 'Beklenmeyen bir hata oluştu'}
+        {error?.message || error || "Beklenmeyen bir hata oluştu"}
       </p>
 
       {showDetails && error?.stack && (

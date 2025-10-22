@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { motion } from "framer-motion";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -14,10 +14,10 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // Hata bilgilerini logla
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
     this.setState({
       error: error,
-      errorInfo: errorInfo
+      errorInfo: errorInfo,
     });
   }
 
@@ -38,28 +38,29 @@ class ErrorBoundary extends React.Component {
             <div className="text-center">
               <motion.div
                 className="text-6xl mb-4"
-                animate={{ 
+                animate={{
                   rotate: [0, 10, -10, 0],
-                  scale: [1, 1.1, 1]
+                  scale: [1, 1.1, 1],
                 }}
-                transition={{ 
-                  duration: 2, 
+                transition={{
+                  duration: 2,
                   repeat: Infinity,
-                  ease: "easeInOut"
+                  ease: "easeInOut",
                 }}
               >
                 💥
               </motion.div>
-              
+
               <h2 className="text-2xl font-bold text-red-400 mb-4">
                 Oops! Bir şeyler ters gitti
               </h2>
-              
+
               <p className="text-gray-300 mb-6">
-                Sayfa yüklenirken beklenmeyen bir hata oluştu. Lütfen sayfayı yenilemeyi deneyin.
+                Sayfa yüklenirken beklenmeyen bir hata oluştu. Lütfen sayfayı
+                yenilemeyi deneyin.
               </p>
 
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {process.env.NODE_ENV === "development" && this.state.error && (
                 <details className="mb-6 text-left">
                   <summary className="text-sm text-gray-400 cursor-pointer hover:text-gray-300">
                     Hata Detayları (Development)
@@ -82,7 +83,7 @@ class ErrorBoundary extends React.Component {
                 >
                   🔄 Tekrar Dene
                 </motion.button>
-                
+
                 <motion.button
                   onClick={() => window.location.reload()}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg shadow-blue-500/50"

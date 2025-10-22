@@ -17,12 +17,6 @@ export const useCountdown = () => {
           throw new Error(`HTTP ${response.status}: Ayarlar yüklenemedi`);
         }
 
-        // Response'un JSON olup olmadığını kontrol et
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("API response JSON değil");
-        }
-
         const settings = await response.json();
         return new Date(settings.targetDate);
       } catch (error) {

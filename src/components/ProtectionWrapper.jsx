@@ -5,8 +5,14 @@ import LoadingSpinner from "./LoadingSpinner";
 import { useProtection } from "../hooks/useProtection";
 import { protectionWrapperPropTypes } from "../utils/propTypes";
 
-const ProtectionWrapper = ({ children, pageName }) => {
+const ProtectionWrapper = ({ children, pageName, onBlockedChange }) => {
   const { isBlocked, isLoading } = useProtection(pageName);
+
+  React.useEffect(() => {
+    if (onBlockedChange) {
+      onBlockedChange(!isBlocked);
+    }
+  }, [isBlocked, onBlockedChange]);
 
   if (isLoading) {
     return (
@@ -26,6 +32,9 @@ const ProtectionWrapper = ({ children, pageName }) => {
   return children;
 };
 
-ProtectionWrapper.propTypes = protectionWrapperPropTypes;
+ProtectionWrapper.propTypes = {
+  ...protectionWrapperPropTypes,
+  onBlockedChange: PropTypes.func,
+};
 
 export default ProtectionWrapper;

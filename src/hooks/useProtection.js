@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export const useProtection = (pageName) => {
   const [isBlocked, setIsBlocked] = useState(false);
@@ -12,12 +12,6 @@ export const useProtection = (pageName) => {
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: Ayarlar yüklenemedi`);
-        }
-
-        // Response'un JSON olup olmadığını kontrol et
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("API response JSON değil");
         }
 
         const settings = await response.json();
@@ -42,6 +36,7 @@ export const useProtection = (pageName) => {
         setIsLoading(false);
       } catch (error) {
         console.error("Koruma ayarları yükleme hatası:", error);
+        console.log(error);
         // Hata durumunda default olarak erişime izin ver
         setIsBlocked(false);
         setIsLoading(false);

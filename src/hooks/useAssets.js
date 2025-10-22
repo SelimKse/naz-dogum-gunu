@@ -26,12 +26,6 @@ export const useAssets = () => {
           throw new Error(`HTTP ${response.status}: Asset listesi alınamadı`);
         }
 
-        // Response'un JSON olup olmadığını kontrol et
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("API response JSON değil");
-        }
-
         const data = await response.json();
 
         if (data.success) {

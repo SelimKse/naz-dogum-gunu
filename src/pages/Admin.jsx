@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import Modal from "../components/Modal";
 import { upload } from "@vercel/blob/client";
 
 const Admin = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem("adminAuthenticated") === "true";
   });
-  const [activeTab, setActiveTab] = useState("assets");
+
+  // Path'e göre activeTab'ı belirle
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes("/timeline")) return "timeline";
+    if (path.includes("/settings")) return "settings";
+    return "assets";
+  };
+
+  const activeTab = getActiveTab();
 
   // Modal state'leri
   const [modal, setModal] = useState({
@@ -60,114 +73,10 @@ const Admin = () => {
     hediyen: true,
   });
 
-  // Koruma ayarlarını MongoDB'den yükle
-  useEffect(() => {
-    const loadProtectionSettings = async () => {
-      try {
-        const response = await fetch("/api/protection-settings");
-        if (!response.ok) throw new Error("Ayarlar yüklenemedi");
+  // Feedback state
+  const [feedback, setFeedback] = useState([]);
 
-        const settings = await response.json();
-        setIsProtectionEnabled(settings.protectionEnabled);
-        setTargetDate(settings.targetDate);
-        setPageProtections(settings.pages);
-      } catch (error) {
-        console.error("Koruma ayarları yükleme hatası:", error);
-        // Hata durumunda default değerler kalacak
-      }
-    };
-
-    if (isAuthenticated) {
-      loadProtectionSettings();
-    }
-  }, [isAuthenticated]);
-
-  // Asset'leri kontrol et - Vercel Blob'dan
-  useEffect(() => {
-    const checkAssets = async () => {
-      setIsCheckingAssets(true);
-
-      try {
-        // Vercel Blob'dan asset listesini al
-        const response = await fetch("/api/list-assets");
-
-        if (!response.ok) {
-          throw new Error("Asset listesi alınamadı");
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-          // Asset URL'lerini kaydet
-          const newStatus = {};
-          const fileNames = [
-            "photo1.png",
-            "photo2.png",
-            "photo3.png",
-            "intro.mp4",
-            "video.mp4",
-            "nazin-kitabi.pdf",
-          ];
-
-          fileNames.forEach((filename) => {
-            newStatus[filename] = data.assets[filename] !== null;
-            console.log(
-              `${newStatus[filename] ? "✅" : "❌"} ${filename}: ${
-                data.assets[filename] ? "Vercel Blob'da" : "Yok"
-              }`
-            );
-          });
-
-          setAssetStatus(newStatus);
-          setAssetUrls(data.assets); // URL'leri kaydet
-        } else {
-          throw new Error(data.error || "Asset listesi alınamadı");
-        }
-      } catch (error) {
-        console.error("Asset kontrol hatası:", error);
-        // Hata durumunda tüm asset'leri yok olarak işaretle
-        setAssetStatus({
-          "photo1.png": false,
-          "photo2.png": false,
-          "photo3.png": false,
-          "intro.mp4": false,
-          "video.mp4": false,
-          "nazin-kitabi.pdf": false,
-        });
-      }
-
-      setIsCheckingAssets(false);
-    };
-
-    if (isAuthenticated) {
-      checkAssets();
-      // Her 10 saniyede bir kontrol et
-      const interval = setInterval(checkAssets, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
-
-  // Timeline'ı MongoDB'den yükle
-  useEffect(() => {
-    const loadTimeline = async () => {
-      try {
-        const response = await fetch("/api/timeline");
-        if (!response.ok)
-          throw new Error("Timeline yüklenemedi: " + response.status);
-        const data = await response.json();
-        setTimelineEvents(data);
-      } catch (error) {
-        console.error("Timeline yükleme hatası:", error);
-        setTimelineEvents([]);
-      }
-    };
-
-    if (isAuthenticated) {
-      loadTimeline();
-    }
-  }, [isAuthenticated]);
-
-  // Modal helper fonksiyonları
+  // Modal fonksiyonları
   const showModal = (title, message, type = "info", onConfirm = null) => {
     setModal({
       isOpen: true,
@@ -188,136 +97,91 @@ const Admin = () => {
     });
   };
 
+  // Giriş fonksiyonu
   const handleLogin = () => {
-    if (password === "naz2025") {
+    if (password === "ohana") {
       setIsAuthenticated(true);
       localStorage.setItem("adminAuthenticated", "true");
+      setPassword("");
     } else {
-      showModal("Hata", "Yanlış şifre! 🔒", "error");
+      showModal(
+        "Hata",
+        "Yanlış şifre! Stitch'in Hawaii'sine giremezsin! 😤",
+        "error"
+      );
     }
   };
 
+  // Çıkış fonksiyonu
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("adminAuthenticated");
-    setPassword("");
+    setActiveTab("assets");
   };
 
-  // Site Koruma Ayarlarını MongoDB'ye Kaydet
-  const saveProtectionSettings = async (newSettings) => {
+  // Asset durumlarını kontrol et
+  const checkAssetStatus = async () => {
+    setIsCheckingAssets(true);
     try {
-      const response = await fetch("/api/protection-settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newSettings),
-      });
+      const response = await fetch("/api/list-assets");
+      if (response.ok) {
+        const data = await response.json();
+        const assets = data.assets || [];
 
-      const data = await response.json();
+        // Asset durumlarını güncelle
+        const newStatus = { ...assetStatus };
+        const newUrls = { ...assetUrls };
 
-      if (data.success) {
-        showModal(
-          "Başarılı",
-          "Koruma ayarları MongoDB'ye kaydedildi!",
-          "success"
-        );
-      } else {
-        showModal("Hata", `Kaydetme hatası: ${data.error}`, "error");
+        assets.forEach((asset) => {
+          if (newStatus.hasOwnProperty(asset.filename)) {
+            newStatus[asset.filename] = true;
+            newUrls[asset.filename] = asset.url;
+          }
+        });
+
+        setAssetStatus(newStatus);
+        setAssetUrls(newUrls);
       }
     } catch (error) {
-      console.error("Koruma ayarları kaydetme hatası:", error);
-      showModal("Hata", "Ayarlar kaydedilemedi!", "error");
+      console.error("Asset durumu kontrol edilemedi:", error);
+    } finally {
+      setIsCheckingAssets(false);
     }
   };
 
-  const handleProtectionToggle = (enabled) => {
-    setIsProtectionEnabled(enabled);
-    saveProtectionSettings({
-      protectionEnabled: enabled,
-      targetDate: targetDate,
-      pages: pageProtections,
-    });
-  };
-
-  const handleTargetDateChange = (date) => {
-    setTargetDate(date);
-    saveProtectionSettings({
-      protectionEnabled: isProtectionEnabled,
-      targetDate: date,
-      pages: pageProtections,
-    });
-  };
-
-  const handlePageProtectionToggle = (page) => {
-    const newProtections = {
-      ...pageProtections,
-      [page]: !pageProtections[page],
-    };
-    setPageProtections(newProtections);
-    saveProtectionSettings({
-      protectionEnabled: isProtectionEnabled,
-      targetDate: targetDate,
-      pages: newProtections,
-    });
-  };
-
-  // Asset yükleme fonksiyonu - Vercel Blob Storage
+  // Asset yükleme fonksiyonu
   const handleAssetUpload = async (filename, event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Dosya boyutu kontrolü (500MB)
-    const maxSize = 500 * 1024 * 1024; // 500MB
-    if (file.size > maxSize) {
-      showModal(
-        "Dosya Çok Büyük",
-        `${filename} maksimum 500MB olabilir (şu an: ${(file.size / 1024 / 1024).toFixed(2)} MB)`,
-        "error"
-      );
-      return;
-    }
-
-    console.log(`📦 ${filename} yükleniyor (${(file.size / 1024 / 1024).toFixed(2)} MB)...`);
-
-    // Progress başlat
-    setUploadProgress((prev) => ({ ...prev, [filename]: 0 }));
-
     try {
-      // Vercel Blob client-side upload (direkt Blob'a, server'dan geçmez)
-      const newBlob = await upload(filename, file, {
+      setUploadProgress((prev) => ({ ...prev, [filename]: 0 }));
+
+      const blob = await upload(filename, file, {
         access: "public",
-        handleUploadUrl: "/api/upload-chunk",
-        onUploadProgress: ({ percentage }) => {
-          setUploadProgress((prev) => ({
-            ...prev,
-            [filename]: Math.round(percentage),
-          }));
-          console.log(`⬆️ ${filename}: ${Math.round(percentage)}%`);
-        },
+        handleUploadUrl: "/api/upload-asset",
       });
 
-      console.log("✅ Upload tamamlandı:", newBlob.url);
-
-      // Progress'i 100'de tut
+      // Progress'i 100% yap
       setUploadProgress((prev) => ({ ...prev, [filename]: 100 }));
 
-      // 1 saniye sonra temizle ve güncelle
+      // Asset durumunu güncelle
+      setAssetStatus((prev) => ({ ...prev, [filename]: true }));
+      setAssetUrls((prev) => ({ ...prev, [filename]: blob.url }));
+
+      // Progress'i temizle
       setTimeout(() => {
         setUploadProgress((prev) => {
           const newProgress = { ...prev };
           delete newProgress[filename];
           return newProgress;
         });
-
-        // Asset durumunu güncelle
-        setAssetStatus((prev) => ({ ...prev, [filename]: true }));
-        setAssetUrls((prev) => ({ ...prev, [filename]: newBlob.url }));
       }, 1000);
 
-      showModal("Başarılı", `${filename} Vercel Blob'a yüklendi! (${(file.size / 1024 / 1024).toFixed(2)} MB)`, "success");
+      showModal("Başarılı", `${filename} başarıyla yüklendi! 🎉`, "success");
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("Upload hatası:", error);
+      showModal("Hata", "Dosya yüklenirken hata oluştu! 😢", "error");
 
       // Progress'i temizle
       setUploadProgress((prev) => {
@@ -325,61 +189,70 @@ const Admin = () => {
         delete newProgress[filename];
         return newProgress;
       });
-
-      showModal(
-        "❌ Hata",
-        `Dosya yüklenemedi!\n\nHata: ${error.message}`,
-        "error"
-      );
     }
   };
 
-  // Asset silme fonksiyonu - Otomatik silme
-  const handleAssetDelete = (filename) => {
+  // Asset silme fonksiyonu
+  const handleAssetDelete = async (filename) => {
     showModal(
-      "Onay Gerekli",
-      `${filename} dosyasını kalıcı olarak silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`,
-      "question",
+      "Dosyayı Sil",
+      `${filename} dosyasını silmek istediğinizden emin misiniz?`,
+      "warning",
       async () => {
         try {
           const response = await fetch("/api/delete-asset", {
-            method: "DELETE",
+            method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ filename }),
           });
 
-          const data = await response.json();
-
-          if (data.success) {
-            // Asset durumunu güncelle
+          if (response.ok) {
             setAssetStatus((prev) => ({ ...prev, [filename]: false }));
-            showModal("Başarılı", `${filename} başarıyla silindi!`, "success");
+            setAssetUrls((prev) => {
+              const newUrls = { ...prev };
+              delete newUrls[filename];
+              return newUrls;
+            });
+            showModal(
+              "Başarılı",
+              `${filename} başarıyla silindi! 🗑️`,
+              "success"
+            );
           } else {
-            showModal("Hata", `Silme hatası: ${data.error}`, "error");
+            throw new Error("Silme işlemi başarısız");
           }
         } catch (error) {
           console.error("Silme hatası:", error);
-          showModal("Hata", "Dosya silinemedi!", "error");
+          showModal("Hata", "Dosya silinirken hata oluştu! 😢", "error");
         }
       }
     );
   };
 
-  // Asset görüntüleme fonksiyonu - Yeni sekmede aç
+  // Asset indirme fonksiyonu
   const handleAssetDownload = (filename) => {
-    // Vercel Blob URL'ini kullan
     const url = assetUrls[filename];
-
     if (url) {
-      // Yeni sekmede aç
       window.open(url, "_blank");
-    } else {
-      showModal("Hata", "Dosya URL'i bulunamadı!", "error");
     }
   };
 
+  // Timeline olaylarını yükle
+  const loadTimelineEvents = async () => {
+    try {
+      const response = await fetch("/api/timeline");
+      if (response.ok) {
+        const data = await response.json();
+        setTimelineEvents(data.events || []);
+      }
+    } catch (error) {
+      console.error("Timeline yüklenemedi:", error);
+    }
+  };
+
+  // Timeline olayı ekle
   const addTimelineEvent = async () => {
     if (newEvent.date && newEvent.title && newEvent.description) {
       // Tarih formatını DD.MM.YYYY'ye çevir
@@ -400,7 +273,9 @@ const Admin = () => {
       };
 
       const updatedEvents = [...timelineEvents, event];
+      setTimelineEvents(updatedEvents);
 
+      // Backend'e kaydet - TÜM olayları gönder
       try {
         const response = await fetch("/api/timeline", {
           method: "POST",
@@ -410,35 +285,48 @@ const Admin = () => {
           body: JSON.stringify({ events: updatedEvents }),
         });
 
-        const data = await response.json();
-
-        if (data.success) {
-          setTimelineEvents(updatedEvents);
-          setNewEvent({ date: "", title: "", description: "", icon: "📅" });
+        if (response.ok) {
           showModal(
             "Başarılı",
-            "Timeline olayı MongoDB'ye eklendi!",
+            "Timeline olayı başarıyla eklendi! 🎉",
             "success"
           );
         } else {
-          showModal("Hata", `Ekleme hatası: ${data.error}`, "error");
+          const errorData = await response.json();
+          console.error("API Error:", errorData);
+          showModal(
+            "Hata",
+            "Timeline olayı kaydedilemedi: " +
+              (errorData.error || "Bilinmeyen hata"),
+            "error"
+          );
         }
       } catch (error) {
-        console.error("Timeline ekleme hatası:", error);
-        showModal("Hata", "Olay eklenirken bir hata oluştu!", "error");
+        console.error("Timeline olayı backend'e kaydedilemedi:", error);
+        showModal("Hata", "Bağlantı hatası: " + error.message, "error");
       }
+
+      // Formu temizle
+      setNewEvent({ date: "", title: "", description: "", icon: "📅" });
+    } else {
+      showModal("Hata", "Lütfen tüm alanları doldurun! 📝", "error");
     }
   };
 
-  const removeTimelineEvent = async (id) => {
+  // Timeline olayı sil
+  const handleDeleteEvent = async (eventId) => {
     showModal(
-      "Onay Gerekli",
-      "Bu olayı silmek istediğinize emin misiniz?",
-      "question",
+      "Olayı Sil",
+      "Bu timeline olayını silmek istediğinizden emin misiniz?",
+      "warning",
       async () => {
-        const updatedEvents = timelineEvents.filter((event) => event.id !== id);
-
         try {
+          // Silindikten sonraki event listesi
+          const updatedEvents = timelineEvents.filter(
+            (event) => event.id !== eventId
+          );
+
+          // Backend'e güncellenen listeyi gönder
           const response = await fetch("/api/timeline", {
             method: "POST",
             headers: {
@@ -447,27 +335,155 @@ const Admin = () => {
             body: JSON.stringify({ events: updatedEvents }),
           });
 
-          const data = await response.json();
-
-          if (data.success) {
+          if (response.ok) {
             setTimelineEvents(updatedEvents);
             showModal(
               "Başarılı",
-              "Timeline olayı MongoDB'den silindi!",
+              "Timeline olayı başarıyla silindi! 🗑️",
               "success"
             );
           } else {
-            showModal("Hata", `Silme hatası: ${data.error}`, "error");
+            const errorData = await response.json();
+            console.error("API Error:", errorData);
+            showModal(
+              "Hata",
+              "Timeline olayı silinemedi: " +
+                (errorData.error || "Bilinmeyen hata"),
+              "error"
+            );
           }
         } catch (error) {
-          console.error("Timeline silme hatası:", error);
-          showModal("Hata", "Olay silinirken bir hata oluştu!", "error");
+          console.error("Timeline olayı silinemedi:", error);
+          showModal("Hata", "Bağlantı hatası: " + error.message, "error");
         }
       }
     );
   };
 
-  const downloadTimelineJSON = () => {
+  // Koruma ayarlarını yükle
+  const loadProtectionSettings = async () => {
+    try {
+      const response = await fetch("/api/protection-settings");
+      if (response.ok) {
+        const settings = await response.json();
+        setIsProtectionEnabled(settings.protectionEnabled);
+        setTargetDate(settings.targetDate);
+        setPageProtections(settings.pages || pageProtections);
+      }
+    } catch (error) {
+      console.error("Koruma ayarları yükleme hatası:", error);
+    }
+  };
+
+  // Koruma ayarlarını kaydet
+  const saveProtectionSettings = async (settings) => {
+    try {
+      const response = await fetch("/api/protection-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(settings),
+      });
+
+      if (response.ok) {
+        showModal(
+          "Başarılı",
+          "Koruma ayarları başarıyla kaydedildi! 🔒",
+          "success"
+        );
+      } else {
+        throw new Error("Ayarlar kaydedilemedi");
+      }
+    } catch (error) {
+      console.error("Koruma ayarları kaydedilemedi:", error);
+      showModal(
+        "Hata",
+        "Koruma ayarları kaydedilirken hata oluştu! 😢",
+        "error"
+      );
+    }
+  };
+
+  // Koruma toggle fonksiyonu
+  const handleProtectionToggle = (enabled) => {
+    setIsProtectionEnabled(enabled);
+    saveProtectionSettings({
+      protectionEnabled: enabled,
+      targetDate: targetDate,
+      pages: pageProtections,
+    });
+  };
+
+  // Hedef tarih değiştirme fonksiyonu
+  const handleTargetDateChange = (date) => {
+    setTargetDate(date);
+    saveProtectionSettings({
+      protectionEnabled: isProtectionEnabled,
+      targetDate: date,
+      pages: pageProtections,
+    });
+  };
+
+  // Sayfa koruma toggle fonksiyonu
+  const handlePageProtectionToggle = (page) => {
+    const newProtections = {
+      ...pageProtections,
+      [page]: !pageProtections[page],
+    };
+    setPageProtections(newProtections);
+    saveProtectionSettings({
+      protectionEnabled: isProtectionEnabled,
+      targetDate: targetDate,
+      pages: newProtections,
+    });
+  };
+
+  // Feedback yükle
+  const loadFeedback = async () => {
+    try {
+      const response = await fetch("/api/feedback");
+      if (response.ok) {
+        const data = await response.json();
+        setFeedback(data.feedback || []);
+      }
+    } catch (error) {
+      console.error("Feedback yüklenemedi:", error);
+    }
+  };
+
+  // Feedback sil
+  const handleDeleteFeedback = async (feedbackId) => {
+    showModal(
+      "Feedback Sil",
+      "Bu feedback'i silmek istediğinizden emin misiniz?",
+      "warning",
+      async () => {
+        try {
+          const response = await fetch("/api/feedback", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id: feedbackId }),
+          });
+
+          if (response.ok) {
+            setFeedback((prev) => prev.filter((f) => f.id !== feedbackId));
+            showModal("Başarılı", "Feedback başarıyla silindi! 🗑️", "success");
+          } else {
+            throw new Error("Silme işlemi başarısız");
+          }
+        } catch (error) {
+          console.error("Feedback silinemedi:", error);
+          showModal("Hata", "Feedback silinirken hata oluştu! 😢", "error");
+        }
+      }
+    );
+  };
+
+  // Timeline JSON indir
+  const handleDownloadTimeline = () => {
     const dataStr = JSON.stringify(timelineEvents, null, 2);
     const dataUri =
       "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
@@ -480,6 +496,25 @@ const Admin = () => {
     linkElement.click();
   };
 
+  // Component mount olduğunda çalışacak
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkAssetStatus();
+      loadTimelineEvents();
+      loadProtectionSettings();
+      loadFeedback();
+    }
+  }, [isAuthenticated]);
+
+  // Asset durumlarını periyodik olarak kontrol et
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(checkAssetStatus, 30000); // 30 saniyede bir kontrol et
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  // Giriş yapılmamışsa giriş sayfasını göster
   if (!isAuthenticated) {
     return (
       <>
@@ -491,41 +526,63 @@ const Admin = () => {
           type={modal.type}
           onConfirm={modal.onConfirm}
         />
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
           <motion.div
-            className="bg-gray-900 rounded-2xl p-8 shadow-xl shadow-purple-500/20 max-w-md w-full border-2 border-purple-500/30"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+            className="bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full border border-purple-500/30"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <div className="text-center mb-6">
-              <span className="text-4xl mb-4 block">🔐</span>
-              <h2 className="text-2xl font-bold text-purple-400 mb-2">
-                Admin Girişi
-              </h2>
-              <p className="text-gray-400">
-                Yönetim paneline erişim için şifre gerekli
-              </p>
-            </div>
+            <div className="p-8">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <svg
+                    className="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
+                </div>
 
-            <div className="space-y-4">
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Şifre giriniz..."
-                className="w-full px-4 py-3 bg-gray-800 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-500"
-                onKeyPress={(e) => e.key === "Enter" && handleLogin()}
-              />
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  Admin Girişi
+                </h2>
+                <p className="text-gray-400">
+                  Yönetim paneline erişim için şifre gerekli
+                </p>
+              </div>
 
-              <motion.button
-                onClick={handleLogin}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg shadow-purple-500/50"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Giriş Yap
-              </motion.button>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Şifre
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Şifrenizi giriniz..."
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                    onKeyPress={(e) => e.key === "Enter" && handleLogin()}
+                  />
+                </div>
+
+                <motion.button
+                  onClick={handleLogin}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Giriş Yap
+                </motion.button>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -543,270 +600,546 @@ const Admin = () => {
         type={modal.type}
         onConfirm={modal.onConfirm}
       />
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 p-4">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
-            className="bg-gray-900 rounded-2xl shadow-xl shadow-purple-500/20 overflow-hidden border-2 border-purple-500/30"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
-              <h1 className="text-3xl font-bold text-white text-center">
-                🎉 Naz Admin Panel
-              </h1>
-              <p className="text-white/80 text-center mt-2">
-                Doğum günü içeriklerini yönet
-              </p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+        <motion.div
+          className="bg-gray-800 shadow-xl border-b border-gray-700"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-white">
+                    Admin Panel
+                  </h1>
+                  <p className="text-sm text-gray-400">
+                    Naz'ın Doğum Günü Yönetimi
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-400">Hoş geldin, Admin</div>
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Çıkış
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex">
+            <div className="w-64 bg-gray-900 border-r border-gray-700 min-h-screen">
+              <nav className="p-4 space-y-2">
+                <button
+                  onClick={() => navigate("/admin")}
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                    activeTab === "assets"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5 mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Asset'ler
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/timeline")}
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                    activeTab === "timeline"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5 mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Timeline
+                </button>
+
+                <button
+                  onClick={() => navigate("/admin/settings")}
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                    activeTab === "settings"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <svg
+                    className="w-5 h-5 mr-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  Ayarlar
+                </button>
+              </nav>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-gray-700 overflow-x-auto">
-              <button
-                onClick={() => setActiveTab("assets")}
-                className={`flex-1 py-4 px-6 text-center font-semibold transition-colors whitespace-nowrap ${
-                  activeTab === "assets"
-                    ? "bg-purple-900/50 text-purple-300 border-b-2 border-purple-500"
-                    : "text-gray-400 hover:bg-gray-800/50"
-                }`}
-              >
-                🎨 Asset'ler
-              </button>
-              <button
-                onClick={() => setActiveTab("timeline")}
-                className={`flex-1 py-4 px-6 text-center font-semibold transition-colors whitespace-nowrap ${
-                  activeTab === "timeline"
-                    ? "bg-purple-900/50 text-purple-300 border-b-2 border-purple-500"
-                    : "text-gray-400 hover:bg-gray-800/50"
-                }`}
-              >
-                📖 Timeline
-              </button>
-              <button
-                onClick={() => setActiveTab("settings")}
-                className={`flex-1 py-4 px-6 text-center font-semibold transition-colors whitespace-nowrap ${
-                  activeTab === "settings"
-                    ? "bg-purple-900/50 text-purple-300 border-b-2 border-purple-500"
-                    : "text-gray-400 hover:bg-gray-800/50"
-                }`}
-              >
-                ⚙️ Ayarlar
-              </button>
-            </div>
+            {/* Main Content */}
+            <div className="flex-1 p-8">
+              <div className="max-w-7xl mx-auto">
+                {activeTab === "assets" && (
+                  <div className="space-y-8">
+                    {/* Dashboard Overview */}
+                    <div className="mb-8">
+                      <h2 className="text-2xl font-bold text-white mb-6">
+                        Dashboard
+                      </h2>
 
-            {/* Content */}
-            <div className="p-6">
-              {activeTab === "assets" && (
-                <div className="space-y-6">
-                  {/* Genel Durum Özeti */}
-                  <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-6 rounded-xl border-2 border-purple-500/50">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <span>📊</span> Asset Durumu
-                        {isCheckingAssets && (
-                          <motion.span
-                            animate={{ rotate: 360 }}
-                            transition={{
-                              repeat: Infinity,
-                              duration: 1,
-                              ease: "linear",
-                            }}
-                            className="text-xl"
-                          >
-                            ⏳
-                          </motion.span>
-                        )}
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
-                        <div className="text-3xl mb-2">
-                          {Object.values(assetStatus).filter(Boolean).length}
-                        </div>
-                        <div className="text-green-400 font-semibold">
-                          Hazır
-                        </div>
-                      </div>
-                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
-                        <div className="text-3xl mb-2">
-                          {Object.values(assetStatus).filter((v) => !v).length}
-                        </div>
-                        <div className="text-red-400 font-semibold">Eksik</div>
-                      </div>
-                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
-                        <div className="text-3xl mb-2">6</div>
-                        <div className="text-gray-400 font-semibold">
-                          Toplam
-                        </div>
-                      </div>
-                      <div className="bg-gray-800/50 p-4 rounded-lg text-center">
-                        <div className="text-3xl mb-2">
-                          {Math.round(
-                            (Object.values(assetStatus).filter(Boolean).length /
-                              6) *
-                              100
-                          )}
-                          %
-                        </div>
-                        <div className="text-purple-400 font-semibold">
-                          Tamamlama
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ana Sayfa Fotoğrafları */}
-                  <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-purple-500/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-bold text-purple-300 flex items-center gap-2">
-                        <span>📸</span> Ana Sayfa Fotoğrafları
-                      </h3>
-                      <span className="text-sm text-gray-400">
-                        /assets/images/photos/
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {["photo1.png", "photo2.png", "photo3.png"].map(
-                        (filename, index) => (
-                          <motion.div
-                            key={filename}
-                            className={`p-4 rounded-lg border-2 transition-all ${
-                              assetStatus[filename]
-                                ? "bg-green-900/20 border-green-500/50"
-                                : "bg-red-900/20 border-red-500/50"
-                            }`}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h4 className="font-bold text-white mb-1">
-                                  Fotoğraf {index + 1}
-                                </h4>
-                                <p className="text-xs text-gray-400">
-                                  {filename}
-                                </p>
-                              </div>
-                              <div className="text-2xl">
-                                {assetStatus[filename] ? "✅" : "❌"}
-                              </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-400">
+                                Hazır Asset'ler
+                              </p>
+                              <p className="text-3xl font-bold text-green-500">
+                                {
+                                  Object.values(assetStatus).filter(Boolean)
+                                    .length
+                                }
+                              </p>
                             </div>
+                            <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-green-500"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
 
-                            {assetStatus[filename] ? (
-                              <div className="space-y-2">
-                                <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
-                                  ✓ Dosya mevcut ve erişilebilir
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() =>
-                                      handleAssetDownload(filename)
-                                    }
-                                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                                  >
-                                    👁️ Görüntüle
-                                  </button>
-                                  <button
-                                    onClick={() => handleAssetDelete(filename)}
-                                    className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
-                                  ✗ Dosya bulunamadı
-                                </div>
-                                {uploadProgress[filename] !== undefined ? (
-                                  <div className="space-y-1">
-                                    <div className="w-full bg-gray-700 rounded-full h-2">
-                                      <motion.div
-                                        className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full"
-                                        initial={{ width: 0 }}
-                                        animate={{
-                                          width: `${uploadProgress[filename]}%`,
-                                        }}
-                                        transition={{ duration: 0.3 }}
-                                      />
-                                    </div>
-                                    <p className="text-xs text-purple-400 text-center">
-                                      Yükleniyor... {uploadProgress[filename]}%
+                        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-400">
+                                Eksik Asset'ler
+                              </p>
+                              <p className="text-3xl font-bold text-red-500">
+                                {
+                                  Object.values(assetStatus).filter((v) => !v)
+                                    .length
+                                }
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-red-500"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-400">
+                                Toplam Asset
+                              </p>
+                              <p className="text-3xl font-bold text-white">6</p>
+                            </div>
+                            <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-gray-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-400">
+                                Tamamlama
+                              </p>
+                              <p className="text-3xl font-bold text-purple-500">
+                                {Math.round(
+                                  (Object.values(assetStatus).filter(Boolean)
+                                    .length /
+                                    6) *
+                                    100
+                                )}
+                                %
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-purple-500"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Asset Management */}
+                    <div className="space-y-8">
+                      <div>
+                        <h3 className="text-xl font-semibold text-white mb-6">
+                          Ana Sayfa Fotoğrafları
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {["photo1.png", "photo2.png", "photo3.png"].map(
+                            (filename, index) => (
+                              <div
+                                key={filename}
+                                className={`bg-gray-800 rounded-xl border-2 p-6 transition-all ${
+                                  assetStatus[filename]
+                                    ? "border-green-500/50"
+                                    : "border-red-500/50"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-4">
+                                  <div>
+                                    <h4 className="font-semibold text-white mb-1">
+                                      Fotoğraf {index + 1}
+                                    </h4>
+                                    <p className="text-sm text-gray-400">
+                                      {filename}
                                     </p>
                                   </div>
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                      assetStatus[filename]
+                                        ? "bg-green-500/20"
+                                        : "bg-red-500/20"
+                                    }`}
+                                  >
+                                    {assetStatus[filename] ? (
+                                      <svg
+                                        className="w-5 h-5 text-green-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M5 13l4 4L19 7"
+                                        />
+                                      </svg>
+                                    ) : (
+                                      <svg
+                                        className="w-5 h-5 text-red-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M6 18L18 6M6 6l12 12"
+                                        />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {assetStatus[filename] ? (
+                                  <div className="space-y-3">
+                                    <div className="bg-green-500/20 border border-green-500/30 rounded-lg px-3 py-2 text-sm text-green-400">
+                                      ✓ Dosya mevcut ve erişilebilir
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() =>
+                                          handleAssetDownload(filename)
+                                        }
+                                        className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+                                      >
+                                        Görüntüle
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleAssetDelete(filename)
+                                        }
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                                      >
+                                        Sil
+                                      </button>
+                                    </div>
+                                  </div>
                                 ) : (
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) =>
-                                      handleAssetUpload(filename, e)
-                                    }
-                                    className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-purple-600 file:text-white file:cursor-pointer hover:file:bg-purple-700"
-                                  />
+                                  <div className="space-y-3">
+                                    <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-3 py-2 text-sm text-red-400">
+                                      ✗ Dosya bulunamadı
+                                    </div>
+                                    {uploadProgress[filename] !== undefined ? (
+                                      <div className="space-y-2">
+                                        <div className="w-full bg-gray-700 rounded-full h-2">
+                                          <motion.div
+                                            className="bg-purple-600 h-2 rounded-full"
+                                            initial={{ width: 0 }}
+                                            animate={{
+                                              width: `${uploadProgress[filename]}%`,
+                                            }}
+                                            transition={{ duration: 0.3 }}
+                                          />
+                                        </div>
+                                        <p className="text-sm text-purple-400 text-center">
+                                          Yükleniyor...{" "}
+                                          {uploadProgress[filename]}%
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) =>
+                                          handleAssetUpload(filename, e)
+                                        }
+                                        className="w-full p-3 border-2 border-dashed border-gray-700 bg-gray-900 rounded-lg text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white file:cursor-pointer hover:file:bg-purple-700 transition-colors"
+                                      />
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            )}
-                          </motion.div>
-                        )
-                      )}
-                    </div>
-                  </div>
+                            )
+                          )}
+                        </div>
+                      </div>
 
-                  {/* Surpriz Sayfası Videoları */}
-                  <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-blue-500/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-bold text-blue-300 flex items-center gap-2">
-                        <span>🎬</span> Surpriz Sayfası Videoları
-                      </h3>
-                      <span className="text-sm text-gray-400">
-                        /assets/videos/
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[
-                        { file: "intro.mp4", label: "Giriş Videosu" },
-                        { file: "video.mp4", label: "Özel Video" },
-                      ].map(({ file, label }, index) => (
+                      {/* Surpriz Sayfası Videoları */}
+                      <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-blue-500/30">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-bold text-blue-300 flex items-center gap-2">
+                            <span>🎬</span> Surpriz Sayfası Videoları
+                          </h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {[
+                            { file: "intro.mp4", label: "Giriş Videosu" },
+                            { file: "video.mp4", label: "Özel Video" },
+                          ].map(({ file, label }, index) => (
+                            <motion.div
+                              key={file}
+                              className={`p-4 rounded-lg border-2 transition-all ${
+                                assetStatus[file]
+                                  ? "bg-green-900/20 border-green-500/50"
+                                  : "bg-red-900/20 border-red-500/50"
+                              }`}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-bold text-white mb-1">
+                                    {label}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">
+                                    {file}
+                                  </p>
+                                </div>
+                                <div className="text-2xl">
+                                  {assetStatus[file] ? "✅" : "❌"}
+                                </div>
+                              </div>
+
+                              {assetStatus[file] ? (
+                                <div className="space-y-2">
+                                  <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
+                                    ✓ Dosya mevcut ve erişilebilir
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleAssetDownload(file)}
+                                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                                    >
+                                      ▶️ Oynat
+                                    </button>
+                                    <button
+                                      onClick={() => handleAssetDelete(file)}
+                                      className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
+                                    ✗ Video bulunamadı
+                                  </div>
+                                  {uploadProgress[file] !== undefined ? (
+                                    <div className="space-y-1">
+                                      <div className="w-full bg-gray-700 rounded-full h-2">
+                                        <motion.div
+                                          className="bg-gradient-to-r from-blue-600 to-cyan-600 h-2 rounded-full"
+                                          initial={{ width: 0 }}
+                                          animate={{
+                                            width: `${uploadProgress[file]}%`,
+                                          }}
+                                          transition={{ duration: 0.3 }}
+                                        />
+                                      </div>
+                                      <p className="text-xs text-blue-400 text-center">
+                                        Yükleniyor... {uploadProgress[file]}%
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <input
+                                      type="file"
+                                      accept="video/*"
+                                      onChange={(e) =>
+                                        handleAssetUpload(file, e)
+                                      }
+                                      className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer hover:file:bg-blue-700"
+                                    />
+                                  )}
+                                </div>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Hediyen Sayfası PDF */}
+                      <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-orange-500/30">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-bold text-orange-300 flex items-center gap-2">
+                            <span>📚</span> Hediyen Sayfası Kitabı
+                          </h3>
+                        </div>
                         <motion.div
-                          key={file}
-                          className={`p-4 rounded-lg border-2 transition-all ${
-                            assetStatus[file]
+                          className={`p-4 rounded-lg border-2 transition-all max-w-md ${
+                            assetStatus["nazin-kitabi.pdf"]
                               ? "bg-green-900/20 border-green-500/50"
                               : "bg-red-900/20 border-red-500/50"
                           }`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div>
                               <h4 className="font-bold text-white mb-1">
-                                {label}
+                                Naz'ın Kitabı
                               </h4>
-                              <p className="text-xs text-gray-400">{file}</p>
+                              <p className="text-xs text-gray-400">
+                                nazin-kitabi.pdf
+                              </p>
                             </div>
                             <div className="text-2xl">
-                              {assetStatus[file] ? "✅" : "❌"}
+                              {assetStatus["nazin-kitabi.pdf"] ? "✅" : "❌"}
                             </div>
                           </div>
 
-                          {assetStatus[file] ? (
+                          {assetStatus["nazin-kitabi.pdf"] ? (
                             <div className="space-y-2">
                               <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
                                 ✓ Dosya mevcut ve erişilebilir
                               </div>
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => handleAssetDownload(file)}
+                                  onClick={() =>
+                                    handleAssetDownload("nazin-kitabi.pdf")
+                                  }
                                   className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                                 >
-                                  ▶️ Oynat
+                                  📄 Aç
                                 </button>
                                 <button
-                                  onClick={() => handleAssetDelete(file)}
+                                  onClick={() =>
+                                    handleAssetDelete("nazin-kitabi.pdf")
+                                  }
                                   className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
                                 >
                                   🗑️
@@ -816,322 +1149,120 @@ const Admin = () => {
                           ) : (
                             <div className="space-y-2">
                               <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
-                                ✗ Video bulunamadı
+                                ✗ PDF dosyası bulunamadı
                               </div>
-                              {uploadProgress[file] !== undefined ? (
+                              {uploadProgress["nazin-kitabi.pdf"] !==
+                              undefined ? (
                                 <div className="space-y-1">
                                   <div className="w-full bg-gray-700 rounded-full h-2">
                                     <motion.div
-                                      className="bg-gradient-to-r from-blue-600 to-cyan-600 h-2 rounded-full"
+                                      className="bg-gradient-to-r from-orange-600 to-red-600 h-2 rounded-full"
                                       initial={{ width: 0 }}
                                       animate={{
-                                        width: `${uploadProgress[file]}%`,
+                                        width: `${uploadProgress["nazin-kitabi.pdf"]}%`,
                                       }}
                                       transition={{ duration: 0.3 }}
                                     />
                                   </div>
-                                  <p className="text-xs text-blue-400 text-center">
-                                    Yükleniyor... {uploadProgress[file]}%
+                                  <p className="text-xs text-orange-400 text-center">
+                                    Yükleniyor...{" "}
+                                    {uploadProgress["nazin-kitabi.pdf"]}%
                                   </p>
                                 </div>
                               ) : (
                                 <input
                                   type="file"
-                                  accept="video/*"
-                                  onChange={(e) => handleAssetUpload(file, e)}
-                                  className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:cursor-pointer hover:file:bg-blue-700"
+                                  accept="application/pdf"
+                                  onChange={(e) =>
+                                    handleAssetUpload("nazin-kitabi.pdf", e)
+                                  }
+                                  className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer hover:file:bg-orange-700"
                                 />
                               )}
                             </div>
                           )}
                         </motion.div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Hediyen Sayfası PDF */}
-                  <div className="bg-gray-800/50 p-6 rounded-xl border-2 border-orange-500/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-bold text-orange-300 flex items-center gap-2">
-                        <span>📚</span> Hediyen Sayfası Kitabı
-                      </h3>
-                      <span className="text-sm text-gray-400">
-                        /assets/documents/
-                      </span>
-                    </div>
-                    <motion.div
-                      className={`p-4 rounded-lg border-2 transition-all max-w-md ${
-                        assetStatus["nazin-kitabi.pdf"]
-                          ? "bg-green-900/20 border-green-500/50"
-                          : "bg-red-900/20 border-red-500/50"
-                      }`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-bold text-white mb-1">
-                            Naz'ın Kitabı
-                          </h4>
-                          <p className="text-xs text-gray-400">
-                            nazin-kitabi.pdf
-                          </p>
-                        </div>
-                        <div className="text-2xl">
-                          {assetStatus["nazin-kitabi.pdf"] ? "✅" : "❌"}
-                        </div>
-                      </div>
-
-                      {assetStatus["nazin-kitabi.pdf"] ? (
-                        <div className="space-y-2">
-                          <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
-                            ✓ Dosya mevcut ve erişilebilir
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() =>
-                                handleAssetDownload("nazin-kitabi.pdf")
-                              }
-                              className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                            >
-                              📄 Aç
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleAssetDelete("nazin-kitabi.pdf")
-                              }
-                              className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
-                            ✗ PDF dosyası bulunamadı
-                          </div>
-                          {uploadProgress["nazin-kitabi.pdf"] !== undefined ? (
-                            <div className="space-y-1">
-                              <div className="w-full bg-gray-700 rounded-full h-2">
-                                <motion.div
-                                  className="bg-gradient-to-r from-orange-600 to-red-600 h-2 rounded-full"
-                                  initial={{ width: 0 }}
-                                  animate={{
-                                    width: `${uploadProgress["nazin-kitabi.pdf"]}%`,
-                                  }}
-                                  transition={{ duration: 0.3 }}
-                                />
-                              </div>
-                              <p className="text-xs text-orange-400 text-center">
-                                Yükleniyor...{" "}
-                                {uploadProgress["nazin-kitabi.pdf"]}%
-                              </p>
-                            </div>
-                          ) : (
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              onChange={(e) =>
-                                handleAssetUpload("nazin-kitabi.pdf", e)
-                              }
-                              className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer hover:file:bg-orange-700"
-                            />
-                          )}
-                        </div>
-                      )}
-                    </motion.div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === "settings" && (
-                <div className="space-y-6">
-                  {/* Site Koruma Sistemi */}
-                  <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 rounded-xl border-2 border-red-500/30">
-                    <h3 className="text-2xl font-bold text-purple-300 mb-4 flex items-center gap-2">
-                      <span>🛡️</span> Site Koruma Sistemi
-                    </h3>
-
-                    <div className="space-y-4">
-                      {/* Ana Koruma Ayarı */}
-                      <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h4 className="font-semibold text-purple-300">
-                              Tarih Koruması
-                            </h4>
-                            <p className="text-sm text-gray-400">
-                              Belirlenen tarihe kadar siteyi kilitler
-                            </p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isProtectionEnabled}
-                              onChange={(e) =>
-                                handleProtectionToggle(e.target.checked)
-                              }
-                              className="sr-only peer"
-                            />
-                            <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div>
-                          </label>
-                        </div>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Hedef Tarih
-                          </label>
-                          <input
-                            type="date"
-                            value={targetDate}
-                            onChange={(e) =>
-                              handleTargetDateChange(e.target.value)
-                            }
-                            className="w-full p-3 bg-gray-700 border-2 border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                          />
-                          <p className="text-xs text-gray-400 mt-1">
-                            Bu tarihten önce site erişime kapalı olacak
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Sayfa Bazlı Koruma */}
-                      <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                        <h4 className="font-semibold text-purple-300 mb-3">
-                          Sayfa Bazlı Erişim Kontrolü
-                        </h4>
-                        <div className="space-y-3">
-                          {[
-                            { key: "home", name: "Ana Sayfa", icon: "🏠" },
-                            { key: "timeline", name: "Timeline", icon: "📖" },
-                            {
-                              key: "ansiklopedi",
-                              name: "Ansiklopedi",
-                              icon: "📚",
-                            },
-                            { key: "hayaller", name: "Hayaller", icon: "✨" },
-                            { key: "surpriz", name: "Sürpriz", icon: "🎁" },
-                            { key: "hediyen", name: "Hediyen", icon: "💝" },
-                          ].map((page) => (
-                            <div
-                              key={page.key}
-                              className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-xl">{page.icon}</span>
-                                <span className="font-medium text-gray-200">
-                                  {page.name}
-                                </span>
-                              </div>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={pageProtections[page.key]}
-                                  onChange={() =>
-                                    handlePageProtectionToggle(page.key)
-                                  }
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-3">
-                          💡 Yeşil: Erişime açık | Gri: Tarih koruması aktif
-                        </p>
-                      </div>
-
-                      {/* Çıkış Butonu */}
-                      <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                        <button
-                          onClick={handleLogout}
-                          className="w-full px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-colors font-semibold flex items-center justify-center gap-2 shadow-lg shadow-red-500/50"
-                        >
-                          <span>🚪</span> Admin Panelinden Çıkış Yap
-                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {activeTab === "timeline" && (
-                <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 rounded-xl border-2 border-orange-500/30">
-                    <h3 className="text-xl font-semibold text-purple-300 mb-4 flex items-center gap-2">
-                      <span>➕</span> Yeni Timeline Olayı Ekle
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <input
-                        type="date"
-                        value={newEvent.date}
-                        onChange={(e) =>
-                          setNewEvent((prev) => ({
-                            ...prev,
-                            date: e.target.value,
-                          }))
-                        }
-                        className="p-3 bg-gray-700 border-2 border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        placeholder="Tarih"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Başlık (örn: İlk Buluşma)"
-                        value={newEvent.title}
-                        onChange={(e) =>
-                          setNewEvent((prev) => ({
-                            ...prev,
-                            title: e.target.value,
-                          }))
-                        }
-                        className="p-3 bg-gray-700 border-2 border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="İkon (örn: ❤️, 🎉, 🌟)"
-                        value={newEvent.icon}
-                        onChange={(e) =>
-                          setNewEvent((prev) => ({
-                            ...prev,
-                            icon: e.target.value,
-                          }))
-                        }
-                        className="p-3 bg-gray-700 border-2 border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                      <textarea
-                        placeholder="Açıklama"
-                        value={newEvent.description}
-                        onChange={(e) =>
-                          setNewEvent((prev) => ({
-                            ...prev,
-                            description: e.target.value,
-                          }))
-                        }
-                        className="p-3 bg-gray-700 border-2 border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows="1"
-                      />
-                    </div>
-                    <button
-                      onClick={addTimelineEvent}
-                      className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-colors font-semibold flex items-center gap-2 shadow-lg shadow-green-500/50"
-                    >
-                      <span>➕</span> Olayı Ekle
-                    </button>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-xl font-semibold text-purple-300 flex items-center gap-2">
-                        <span>📖</span> Mevcut Timeline Olayları (
-                        {timelineEvents.length})
-                      </h3>
+                {activeTab === "timeline" && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-white">
+                        Timeline Yönetimi
+                      </h2>
                       <button
-                        onClick={downloadTimelineJSON}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-colors flex items-center gap-2 font-semibold shadow-lg shadow-blue-500/50"
+                        onClick={handleDownloadTimeline}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                       >
                         <span>📥</span> JSON İndir
+                      </button>
+                    </div>
+
+                    {/* Timeline Olay Ekleme Formu */}
+                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <span>➕</span> Yeni Timeline Olayı Ekle
+                      </h3>
+                      <div className="space-y-4 mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <input
+                            type="date"
+                            value={newEvent.date}
+                            onChange={(e) =>
+                              setNewEvent((prev) => ({
+                                ...prev,
+                                date: e.target.value,
+                              }))
+                            }
+                            className="p-3 bg-gray-900 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors [color-scheme:dark]"
+                            placeholder="Tarih"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Başlık (örn: İlk Buluşma)"
+                            value={newEvent.title}
+                            onChange={(e) =>
+                              setNewEvent((prev) => ({
+                                ...prev,
+                                title: e.target.value,
+                              }))
+                            }
+                            className="p-3 bg-gray-900 border border-gray-700 text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          />
+                          <input
+                            type="text"
+                            placeholder="İkon (örn: ❤️, 🎉, 🌟)"
+                            value={newEvent.icon}
+                            onChange={(e) =>
+                              setNewEvent((prev) => ({
+                                ...prev,
+                                icon: e.target.value,
+                              }))
+                            }
+                            className="p-3 bg-gray-900 border border-gray-700 text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          />
+                        </div>
+                        <textarea
+                          placeholder="Açıklama"
+                          value={newEvent.description}
+                          onChange={(e) =>
+                            setNewEvent((prev) => ({
+                              ...prev,
+                              description: e.target.value,
+                            }))
+                          }
+                          className="w-full p-3 bg-gray-900 border border-gray-700 text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          rows={4}
+                        />
+                      </div>
+                      <button
+                        onClick={addTimelineEvent}
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors font-semibold"
+                      >
+                        Olay Ekle
                       </button>
                     </div>
 
@@ -1140,57 +1271,158 @@ const Admin = () => {
                         {timelineEvents.map((event, index) => (
                           <motion.div
                             key={event.id}
-                            className="bg-gray-800/50 p-5 rounded-lg border-2 border-purple-500/30 hover:border-purple-400/50 hover:shadow-md hover:shadow-purple-500/20 transition-all"
+                            className="bg-gray-800 p-6 rounded-lg border border-gray-700 shadow-lg"
                             layout
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.05 }}
                           >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <span className="text-2xl">
-                                    {event.icon || "📅"}
-                                  </span>
-                                  <span className="font-bold text-purple-300 bg-gray-900/80 px-3 py-1 rounded-full border border-purple-500/30">
-                                    {event.date}
-                                  </span>
-                                  <span className="text-gray-600">•</span>
-                                  <span className="font-semibold text-purple-300 text-lg">
-                                    {event.title}
-                                  </span>
-                                </div>
-                                <p className="text-gray-200 ml-11">
-                                  {event.description}
-                                </p>
+                            <div className="flex justify-between items-center mb-4">
+                              <div className="flex items-center gap-3">
+                                <span className="text-3xl">{event.icon}</span>
+                                <h3 className="text-xl font-semibold text-white">
+                                  {event.title}
+                                </h3>
+                                <span className="text-sm text-gray-400">
+                                  📅 {event.date}
+                                </span>
                               </div>
                               <button
-                                onClick={() => removeTimelineEvent(event.id)}
-                                className="ml-4 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-colors flex items-center gap-2 font-semibold shadow-lg shadow-red-500/50"
+                                onClick={() => handleDeleteEvent(event.id)}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
                               >
-                                <span>🗑️</span> Sil
+                                Sil
                               </button>
                             </div>
+                            <p className="text-lg text-gray-300 leading-relaxed">
+                              {event.description}
+                            </p>
                           </motion.div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-12 bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-700">
-                        <span className="text-6xl mb-4 block">📖</span>
-                        <p className="text-gray-300 text-lg">
-                          Henüz timeline olayı eklenmedi
-                        </p>
-                        <p className="text-gray-400 text-sm mt-2">
+                      <div className="text-center py-12 bg-gray-800 rounded-xl border border-gray-700">
+                        <div className="text-6xl mb-4">📅</div>
+                        <h3 className="text-xl font-semibold text-white mb-2">
+                          Henüz timeline olayı yok
+                        </h3>
+                        <p className="text-gray-400">
                           Yukarıdaki formdan yeni olay ekleyebilirsiniz
                         </p>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+
+                {activeTab === "settings" && (
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-white">
+                      Site Ayarları
+                    </h2>
+
+                    {/* Site Koruma Sistemi */}
+                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <span>🛡️</span> Site Koruma Sistemi
+                      </h3>
+
+                      <div className="space-y-4">
+                        {/* Ana Koruma Ayarı */}
+                        <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h4 className="font-semibold text-white">
+                                Tarih Koruması
+                              </h4>
+                              <p className="text-sm text-gray-400">
+                                Belirlenen tarihe kadar siteyi kilitler
+                              </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isProtectionEnabled}
+                                onChange={(e) =>
+                                  handleProtectionToggle(e.target.checked)
+                                }
+                                className="sr-only peer"
+                              />
+                              <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-600 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                          </div>
+
+                          <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Hedef Tarih
+                            </label>
+                            <input
+                              type="date"
+                              value={targetDate}
+                              onChange={(e) =>
+                                handleTargetDateChange(e.target.value)
+                              }
+                              className="w-full p-3 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors [color-scheme:dark]"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Bu tarihten önce site erişime kapalı olacak
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Sayfa Bazlı Koruma */}
+                        <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                          <h4 className="font-semibold text-white mb-3">
+                            Sayfa Bazlı Erişim Kontrolü
+                          </h4>
+                          <div className="space-y-3">
+                            {[
+                              { key: "home", name: "Ana Sayfa", icon: "🏠" },
+                              { key: "timeline", name: "Timeline", icon: "📖" },
+                              {
+                                key: "ansiklopedi",
+                                name: "Ansiklopedi",
+                                icon: "📚",
+                              },
+                              { key: "hayaller", name: "Hayaller", icon: "✨" },
+                              { key: "surpriz", name: "Sürpriz", icon: "🎁" },
+                              { key: "hediyen", name: "Hediyen", icon: "💝" },
+                            ].map((page) => (
+                              <div
+                                key={page.key}
+                                className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl">{page.icon}</span>
+                                  <span className="font-medium text-white">
+                                    {page.name}
+                                  </span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={pageProtections[page.key]}
+                                    onChange={() =>
+                                      handlePageProtectionToggle(page.key)
+                                    }
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-3">
+                            💡 Yeşil: Erişime açık | Gri: Tarih koruması aktif
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
     </>
   );

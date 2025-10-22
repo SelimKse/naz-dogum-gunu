@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -17,33 +17,35 @@ app.use(express.json());
 // Asset türüne göre yol belirleme fonksiyonu
 const getAssetPath = (filename) => {
   const ext = path.extname(filename).toLowerCase();
-  
+
   // Dosya adına göre özel mapping
   if (filename.startsWith("photo")) {
     return path.join("images", "photos", filename);
   }
-  
-  if (["stitch.png", "lilo.png", "hawaii.png", "ohana.png"].includes(filename)) {
+
+  if (
+    ["stitch.png", "lilo.png", "hawaii.png", "ohana.png"].includes(filename)
+  ) {
     return path.join("images", "icons", filename);
   }
-  
+
   // Uzantıya göre klasör belirleme
   if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
     return path.join("images", filename);
   }
-  
+
   if ([".mp4", ".mov", ".avi", ".webm"].includes(ext)) {
     return path.join("videos", filename);
   }
-  
+
   if ([".pdf", ".doc", ".docx"].includes(ext)) {
     return path.join("documents", filename);
   }
-  
+
   if ([".json", ".txt"].includes(ext)) {
     return path.join("data", filename);
   }
-  
+
   // Default: root assets klasörü
   return filename;
 };
@@ -53,8 +55,13 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const targetName = req.body.targetName || file.originalname;
     const relativePath = getAssetPath(targetName);
-    const uploadPath = path.join(__dirname, "public", "assets", path.dirname(relativePath));
-    
+    const uploadPath = path.join(
+      __dirname,
+      "public",
+      "assets",
+      path.dirname(relativePath)
+    );
+
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -96,7 +103,7 @@ app.post("/api/upload-asset", upload.single("file"), (req, res) => {
 
     const targetName = req.body.targetName || req.file.originalname;
     const relativePath = getAssetPath(targetName);
-    
+
     res.json({
       success: true,
       message: "Dosya başarıyla yüklendi",
@@ -136,7 +143,13 @@ app.delete("/api/delete-asset/:filename", (req, res) => {
 // Timeline JSON okuma endpoint'i
 app.get("/api/timeline", (req, res) => {
   try {
-    const filePath = path.join(__dirname, "public", "assets", "data", "timeline.json");
+    const filePath = path.join(
+      __dirname,
+      "public",
+      "assets",
+      "data",
+      "timeline.json"
+    );
 
     if (!fs.existsSync(filePath)) {
       return res.json([]);
@@ -159,7 +172,13 @@ app.post("/api/timeline", (req, res) => {
       return res.status(400).json({ error: "Geçersiz veri formatı" });
     }
 
-    const filePath = path.join(__dirname, "public", "assets", "data", "timeline.json");
+    const filePath = path.join(
+      __dirname,
+      "public",
+      "assets",
+      "data",
+      "timeline.json"
+    );
     fs.writeFileSync(filePath, JSON.stringify(events, null, 2), "utf8");
 
     res.json({
@@ -183,7 +202,13 @@ app.post("/api/save-feedback", (req, res) => {
     }
 
     // gelennot.txt dosyasının yolu
-    const filePath = path.join(__dirname, "public", "assets", "data", "gelennot.txt");
+    const filePath = path.join(
+      __dirname,
+      "public",
+      "assets",
+      "data",
+      "gelennot.txt"
+    );
 
     // Dosyayı üzerine yaz (varsa silinir, yoksa oluşturulur)
     fs.writeFileSync(filePath, feedback.trim(), "utf8");
@@ -198,7 +223,13 @@ app.post("/api/save-feedback", (req, res) => {
 // Protection Settings okuma endpoint'i
 app.get("/api/protection-settings", (req, res) => {
   try {
-    const filePath = path.join(__dirname, "public", "assets", "data", "protection-settings.json");
+    const filePath = path.join(
+      __dirname,
+      "public",
+      "assets",
+      "data",
+      "protection-settings.json"
+    );
 
     if (!fs.existsSync(filePath)) {
       // Dosya yoksa default ayarları döndür
@@ -230,11 +261,15 @@ app.post("/api/protection-settings", (req, res) => {
     const { protectionEnabled, targetDate, pages } = req.body;
 
     if (typeof protectionEnabled !== "boolean") {
-      return res.status(400).json({ error: "protectionEnabled boolean olmalı" });
+      return res
+        .status(400)
+        .json({ error: "protectionEnabled boolean olmalı" });
     }
 
     if (!targetDate || typeof targetDate !== "string") {
-      return res.status(400).json({ error: "targetDate geçerli bir tarih olmalı" });
+      return res
+        .status(400)
+        .json({ error: "targetDate geçerli bir tarih olmalı" });
     }
 
     if (!pages || typeof pages !== "object") {
@@ -247,8 +282,14 @@ app.post("/api/protection-settings", (req, res) => {
       pages,
     };
 
-    const filePath = path.join(__dirname, "public", "assets", "data", "protection-settings.json");
-    
+    const filePath = path.join(
+      __dirname,
+      "public",
+      "assets",
+      "data",
+      "protection-settings.json"
+    );
+
     // Dizin yoksa oluştur
     const dirPath = path.dirname(filePath);
     if (!fs.existsSync(dirPath)) {

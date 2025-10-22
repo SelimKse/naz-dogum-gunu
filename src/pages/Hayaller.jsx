@@ -1,173 +1,216 @@
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import PropTypes from "prop-types";
+import StoryTimer from "../components/StoryTimer";
 
-const Hayaller = () => {
-  const [flipped, setFlipped] = React.useState({});
+const Hayaller = ({ onUpdateTimer }) => {
+  const [currentDream, setCurrentDream] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const navigate = useNavigate();
 
-  const dreams = [
+  const dreams = useMemo(() => [
     {
-      icon: "✈️",
-      title: "Seyahat Hayalleri",
-      description:
-        "En çok Fransa'yı görmek, Sevdiğin insanlarla yeni yerler keşfetmek.",
-      colors: "from-blue-800 to-purple-950",
-      image:
-        "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800", // Paris Eyfel Kulesi
-      backText: "Hayallerindeki her yere gideceğiz! ✈️🗼",
-    },
-    {
-      icon: "🎶",
-      title: "Müzik Dünyası",
-      description: "En sevdiği şarkıları dinlemek, konserler, müzikal anılar",
-      colors: "from-purple-800 to-pink-950",
-      image:
-        "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800", // Konser
-      backText: "Müzik ruhunu beslesin! 🎶🎵 \nGökhan Türkmen - Derdim",
-    },
-    {
-      icon: "☕",
-      title: "Keyifli Anlar",
-      description: "Sıcak kahveler, güzel sohbetler, huzurlu zamanlar",
-      colors: "from-pink-800 to-blue-950",
-      image:
-        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800", // Kahve
-      backText: "Hatırı Olması Gereken Günlere! ☕💭",
-    },
-    {
-      icon: "🎨",
-      title: "Yaratıcılık",
-      description: "Sanat, yaratıcı projeler ve hayallerin gerçekleşmesi",
-      colors: "from-blue-900 to-purple-950",
-      image:
-        "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800", // Sanat
-      backText: "Yaratıcılığın sınırı yok! 🎨✨",
-    },
-    {
-      icon: "🌟",
+      id: 0,
       title: "Büyük Hayaller",
-      description:
-        "Tüm hayallerinin gerçekleşmesi ve mutluluk dolu bir gelecek",
-      colors: "from-purple-900 to-pink-950",
-      image:
-        "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800", // Yıldızlı gökyüzü
-      backText: "Her hayalin gerçek olacak! 🌟💫",
+      content: "Naz'ın hayalleri gökyüzü kadar geniş, deniz kadar derin. Her hayali gerçek olacak. Stitch'in Hawaii'deki gibi, onun da hayalleri sonsuz okyanuslar kadar geniş. Lilo'nun Stitch'e olan inancı gibi, biz de Naz'ın tüm hayallerinin gerçek olacağına inanıyoruz. Her hayali, her umudu, her düşü gerçek olacak.",
+      emoji: "🌟"
     },
     {
-      icon: "💙",
-      title: "Stitch ile Maceralar",
-      description: "En sevdiği karakter Stitch gibi eğlenceli maceralar",
-      colors: "from-blue-800 to-blue-950",
-      image: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800", // Hawaii
-      backText: "Ohana means family! 💙🌺",
+      id: 1,
+      title: "Gelecek Planları",
+      content: "Başarılı, mutlu ve sevgi dolu bir gelecek onu bekliyor. Her adımda yanındayız. Stitch'in Lilo ile birlikte yaşadığı gibi, Naz da ailesiyle birlikte güzel bir gelecek yaşayacak. Ohana'nın gücüyle, sevgiyle, mutlulukla dolu bir hayat onu bekliyor.",
+      emoji: "🚀"
     },
-  ];
+    {
+      id: 2,
+      title: "Mutluluk",
+      content: "En büyük hayali mutlu olmak. Ve bu hayal zaten gerçek! Stitch'in Lilo'yu mutlu etmek için yaptığı her şey gibi, biz de Naz'ın mutluluğu için her şeyi yapıyoruz. Onun gülümsemesi, bizim en büyük mutluluğumuz. Stitch'in dediği gibi: 'Mutluluk paylaştıkça çoğalır.'",
+      emoji: "😊"
+    }
+  ], []);
+
+  useEffect(() => {
+    if (!isAutoPlaying) {
+      setIsAutoPlaying(true);
+    }
+  }, [isAutoPlaying]);
+
+  // Timer'ı güncelle
+  useEffect(() => {
+    if (isAutoPlaying) {
+      onUpdateTimer(
+        <StoryTimer
+          duration={8000}
+          currentStep={currentDream}
+          totalSteps={dreams.length}
+          isActive={true}
+        />
+      );
+    } else {
+      onUpdateTimer(null);
+    }
+  }, [currentDream, isAutoPlaying, dreams.length, onUpdateTimer]);
+
+  // Otomatik hayal geçişi - son adımda da tam süre bekle
+  useEffect(() => {
+    if (!isAutoPlaying) return;
+
+    const timer = setTimeout(() => {
+      if (currentDream < dreams.length - 1) {
+        setCurrentDream(prev => prev + 1);
+      } else {
+        // Son hayal de bitti, sürprize geç
+        navigate('/surpriz');
+      }
+    }, 8000);
+
+    return () => clearTimeout(timer);
+  }, [currentDream, isAutoPlaying, dreams.length, navigate]);
+
+  const currentDreamData = dreams[currentDream];
 
   return (
-    <div className="min-h-screen py-20 px-2 flex items-center justify-center">
-      <div className="container mx-auto max-w-7xl">
-        <motion.h1
-          className="text-5xl md:text-6xl font-bold text-center mb-4 font-quicksand"
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          <span className="gradient-text">Naz'ın Hayalleri</span>
-          <span className="inline-block"> ✨</span>
-        </motion.h1>
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Arka Plan Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-black"></div>
+      
+      {/* Subtle Particles */}
+      <div className="absolute inset-0">
+        {[...Array(18)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-purple-400/30 rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              opacity: [0.3, 0.8, 0.3],
+              scale: [1, 1.5, 1],
+            }}
+            transition={{
+              duration: 3 + Math.random() * 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
+      </div>
 
-        <motion.p
-          className="text-xl text-purple-300 text-center mb-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
-          Gerçekleşmesi gereken güzel hayaller 💫
-        </motion.p>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {dreams.map((dream, index) => (
-            <motion.div
-              key={index}
-              className="relative h-60 cursor-pointer"
-              style={{ perspective: "1000px" }}
-              initial={{ opacity: 0, y: 0 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1, duration: 0.5 }}
-              onHoverStart={() => setFlipped({ [index]: true })}
-              onHoverEnd={() => setFlipped({ [index]: false })}
-              onClick={() => setFlipped({ [index]: !flipped[index] })}
-            >
+      {/* Ana İçerik */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-4xl mx-auto">
+          
+          {/* Progress Dots */}
+          <div className="flex justify-center space-x-3 mb-12">
+            {dreams.map((_, index) => (
               <motion.div
-                className="relative w-full h-full"
-                style={{ transformStyle: "preserve-3d" }}
-                animate={{ rotateY: flipped[index] ? 180 : 0 }}
-                transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
+                key={index}
+                className={`w-3 h-3 rounded-full ${
+                  index <= currentDream ? 'bg-purple-400' : 'bg-gray-600'
+                }`}
+                animate={{
+                  scale: index === currentDream ? [1, 1.2, 1] : 1,
+                }}
+                transition={{
+                  duration: 1,
+                  repeat: index === currentDream ? Infinity : 0,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Dream Content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentDream}
+              className="mb-16"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ duration: 0.6 }}
+            >
+              {/* Emoji */}
+              <motion.div
+                className="text-8xl mb-8"
+                animate={{
+                  scale: [1, 1.1, 1],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
               >
-                {/* Ön Yüz */}
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${dream.colors} p-6 rounded-3xl text-white shadow-xl flex flex-col items-center justify-center`}
-                  style={{ backfaceVisibility: "hidden" }}
+                {currentDreamData.emoji}
+              </motion.div>
+
+              {/* Title */}
+              <motion.h1
+                className="text-4xl md:text-6xl font-bold mb-8"
+                style={{ fontFamily: 'Fredoka, cursive' }}
+                animate={{
+                  textShadow: [
+                    "0 0 20px rgba(147, 51, 234, 0.5)",
+                    "0 0 40px rgba(59, 130, 246, 0.8)",
+                    "0 0 20px rgba(147, 51, 234, 0.5)",
+                  ],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  {currentDreamData.title}
+                </span>
+              </motion.h1>
+
+              {/* Content */}
+              <motion.p
+                className="text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed"
+                style={{ fontFamily: 'Comfortaa, cursive' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                {currentDreamData.content}
+              </motion.p>
+
+              {/* Loading State */}
+              {isAutoPlaying && currentDream === dreams.length - 1 && (
+                <motion.div
+                  className="text-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
                 >
                   <motion.div
-                    className="text-5xl mb-4 text-center"
-                    animate={{
-                      rotate: [0, 10, -10, 0],
-                      scale: [1, 1.1, 1],
-                    }}
+                    className="w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full mx-auto mb-4"
+                    animate={{ rotate: 360 }}
                     transition={{
-                      duration: 2,
+                      duration: 1,
                       repeat: Infinity,
-                      delay: index * 0.2,
+                      ease: "linear",
                     }}
-                  >
-                    {dream.icon}
-                  </motion.div>
-
-                  <h3 className="text-2xl font-bold mb-3 text-center">
-                    {dream.title}
-                  </h3>
-
-                  <p className="text-center text-white/90 leading-relaxed">
-                    {dream.description}
-                  </p>
-                </div>
-
-                {/* Arka Yüz */}
-                <div
-                  className="absolute inset-0 rounded-3xl overflow-hidden shadow-xl"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    transform: "rotateY(180deg)",
-                  }}
-                >
-                  {/* Arka Plan Resim */}
-                  <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${dream.image})` }}
                   />
-
-                  {/* Blur ve Karartma Overlay */}
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-                    <motion.p
-                      className="text-white text-2xl font-bold text-center whitespace-pre-line"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{
-                        opacity: flipped[index] ? 1 : 0,
-                        y: flipped[index] ? 0 : 20,
-                      }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      {dream.backText}
-                    </motion.p>
-                  </div>
-                </div>
-              </motion.div>
+                  <p className="text-gray-400" style={{ fontFamily: 'Comfortaa, cursive' }}>
+                    Sürprize geçiliyor...
+                  </p>
+                </motion.div>
+              )}
             </motion.div>
-          ))}
+          </AnimatePresence>
         </div>
       </div>
     </div>
   );
+};
+
+Hayaller.propTypes = {
+  onUpdateTimer: PropTypes.func,
 };
 
 export default Hayaller;
