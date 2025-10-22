@@ -27,6 +27,4 @@ if (process.env.NODE_ENV === "development") {
   clientPromise = client.connect();
 }
 
-console.log("MongoDB bağlantısı başarılı" + client.getDatabaseNames());
-
 export default clientPromise;
