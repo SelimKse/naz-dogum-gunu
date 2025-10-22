@@ -40,6 +40,8 @@ const Admin = () => {
     "intro.mp4": false,
     "video.mp4": false,
     "nazin-kitabi.pdf": false,
+    "song.mp3": false,
+    "cover.jpg": false,
   });
 
   // Asset URL'leri (Vercel Blob'dan)
@@ -812,7 +814,7 @@ const Admin = () => {
                               <p className="text-sm font-medium text-gray-400">
                                 Toplam Asset
                               </p>
-                              <p className="text-3xl font-bold text-white">6</p>
+                              <p className="text-3xl font-bold text-white">8</p>
                             </div>
                             <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center">
                               <svg
@@ -842,7 +844,7 @@ const Admin = () => {
                                 {Math.round(
                                   (Object.values(assetStatus).filter(Boolean)
                                     .length /
-                                    6) *
+                                    8) *
                                     100
                                 )}
                                 %
@@ -1182,6 +1184,100 @@ const Admin = () => {
                             </div>
                           )}
                         </motion.div>
+                      </div>
+
+                      {/* Müzik Dosyaları */}
+                      <div className="bg-gray-800/50 rounded-xl p-6 border border-purple-500/30">
+                        <div className="mb-4">
+                          <h3 className="text-xl font-bold text-purple-300 flex items-center gap-2">
+                            <span>🎵</span> Müzik Dosyaları
+                          </h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {[
+                            { file: "song.mp3", label: "Müzik Dosyası", icon: "🎶" },
+                            { file: "cover.jpg", label: "Kapak Resmi", icon: "🖼️" },
+                          ].map(({ file, label, icon }, index) => (
+                            <motion.div
+                              key={file}
+                              className={`p-4 rounded-lg border-2 transition-all ${
+                                assetStatus[file]
+                                  ? "bg-green-900/20 border-green-500/50"
+                                  : "bg-red-900/20 border-red-500/50"
+                              }`}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-bold text-white mb-1 flex items-center gap-2">
+                                    <span>{icon}</span>
+                                    {label}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">
+                                    {file}
+                                  </p>
+                                </div>
+                                <div className="text-2xl">
+                                  {assetStatus[file] ? "✅" : "❌"}
+                                </div>
+                              </div>
+
+                              {assetStatus[file] ? (
+                                <div className="space-y-2">
+                                  <div className="bg-green-500/10 border border-green-500/30 rounded px-3 py-2 text-xs text-green-400">
+                                    ✓ Dosya mevcut ve erişilebilir
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleAssetDownload(file)}
+                                      className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                                    >
+                                      {file.includes("mp3") ? "🎵 Dinle" : "🖼️ Görüntüle"}
+                                    </button>
+                                    <button
+                                      onClick={() => handleAssetDelete(file)}
+                                      className="px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="bg-red-500/10 border border-red-500/30 rounded px-3 py-2 text-xs text-red-400">
+                                    ✗ {file.includes("mp3") ? "Müzik dosyası" : "Kapak resmi"} bulunamadı
+                                  </div>
+                                  {uploadProgress[file] !== undefined ? (
+                                    <div className="space-y-1">
+                                      <div className="w-full bg-gray-700 rounded-full h-2">
+                                        <motion.div
+                                          className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full"
+                                          initial={{ width: 0 }}
+                                          animate={{
+                                            width: `${uploadProgress[file]}%`,
+                                          }}
+                                          transition={{ duration: 0.3 }}
+                                        />
+                                      </div>
+                                      <p className="text-xs text-purple-400 text-center">
+                                        Yükleniyor... {uploadProgress[file]}%
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <input
+                                      type="file"
+                                      accept={file.includes("mp3") ? "audio/mpeg,audio/mp3" : "image/jpeg,image/jpg"}
+                                      onChange={(e) => handleAssetUpload(file, e)}
+                                      className="w-full p-2 bg-gray-700 border border-gray-600 text-white rounded text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-purple-600 file:text-white file:cursor-pointer hover:file:bg-purple-700"
+                                    />
+                                  )}
+                                </div>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>

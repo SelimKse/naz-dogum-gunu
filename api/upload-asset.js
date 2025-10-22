@@ -55,6 +55,8 @@ export default async function handler(req, res) {
           "intro.mp4": "assets/videos/intro.mp4",
           "video.mp4": "assets/videos/video.mp4",
           "nazin-kitabi.pdf": "assets/documents/nazin-kitabi.pdf",
+          "song.mp3": "assets/music/song.mp3",
+          "cover.jpg": "assets/music/cover.jpg",
         };
 
         const blobPath = allowedFiles[filename];
@@ -69,8 +71,11 @@ export default async function handler(req, res) {
           allowedContentTypes: [
             "image/png",
             "image/jpeg",
+            "image/jpg",
             "video/mp4",
             "application/pdf",
+            "audio/mpeg",
+            "audio/mp3",
           ],
           maximumSizeInBytes: 500 * 1024 * 1024, // 500MB
           addRandomSuffix: false,

@@ -48,6 +48,8 @@ export default async function handler(req, res) {
       "intro.mp4",
       "video.mp4",
       "nazin-kitabi.pdf",
+      "song.mp3",
+      "cover.jpg",
     ];
 
     // Her dosya için blob URL'ini bul

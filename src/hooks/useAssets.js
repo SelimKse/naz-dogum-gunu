@@ -8,6 +8,8 @@ export const useAssets = () => {
     "intro.mp4": false,
     "video.mp4": false,
     "nazin-kitabi.pdf": false,
+    "song.mp3": false,
+    "cover.jpg": false,
   });
   const [assetUrls, setAssetUrls] = useState({});
   const [isCheckingAssets, setIsCheckingAssets] = useState(true);
@@ -38,6 +40,8 @@ export const useAssets = () => {
             "intro.mp4",
             "video.mp4",
             "nazin-kitabi.pdf",
+            "song.mp3",
+            "cover.jpg",
           ];
 
           fileNames.forEach((filename) => {
@@ -60,6 +64,8 @@ export const useAssets = () => {
           "intro.mp4": false,
           "video.mp4": false,
           "nazin-kitabi.pdf": false,
+          "song.mp3": false,
+          "cover.jpg": false,
         });
       }
 

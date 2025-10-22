@@ -18,6 +18,7 @@ import TopNavigation from "./components/TopNavigation";
 import MusicPlayer from "./components/MusicPlayer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PageTransition from "./components/PageTransition";
+import { useAssets } from "./hooks/useAssets";
 
 function AppContent() {
   const location = useLocation();
@@ -25,14 +26,15 @@ function AppContent() {
   const [showNavbar, setShowNavbar] = React.useState(true);
   const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
   const [globalStoryTimer, setGlobalStoryTimer] = React.useState(null);
+  const { assetUrls } = useAssets();
 
-  // Global müzik bilgileri - tüm sayfalarda çalacak
+  // Global müzik bilgileri - Blob URL'lerini kullan
   const track = React.useMemo(() => ({
     name: "Derdim",
     artist: "Gökhan Türkmen",
-    image: "/assets/music/cover.jpg",
-    url: "/assets/music/song.mp3",
-  }), []);
+    image: assetUrls["cover.jpg"] || "/assets/music/cover.jpg",
+    url: assetUrls["song.mp3"] || "/assets/music/song.mp3",
+  }), [assetUrls]);
 
   // Müziği başlatma fonksiyonu - Home sayfasından çağrılacak
   const startMusic = React.useCallback(() => {
