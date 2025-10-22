@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       // Timeline olaylarını oku
       const events = await collection.find({}).sort({ id: 1 }).toArray();
-      return res.status(200).json(events);
+      return res.status(200).json({ events });
     }
 
     if (req.method === 'POST') {

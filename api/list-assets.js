@@ -1,4 +1,4 @@
-import { list } from '@vercel/blob';
+import { list } from "@vercel/blob";
 
 export default async function handler(req, res) {
   // CORS
@@ -22,11 +22,11 @@ export default async function handler(req, res) {
 
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    
+
     if (!token) {
-      return res.status(500).json({ 
-        success: false, 
-        error: "BLOB_READ_WRITE_TOKEN yapılandırılmamış" 
+      return res.status(500).json({
+        success: false,
+        error: "BLOB_READ_WRITE_TOKEN yapılandırılmamış",
       });
     }
 
@@ -43,35 +43,34 @@ export default async function handler(req, res) {
     const assetMap = {};
     const fileNames = [
       "photo1.png",
-      "photo2.png", 
+      "photo2.png",
       "photo3.png",
       "intro.mp4",
       "video.mp4",
-      "nazin-kitabi.pdf"
+      "nazin-kitabi.pdf",
     ];
 
     // Her dosya için blob URL'ini bul
-    fileNames.forEach(filename => {
-      const blob = blobs.find(b => b.pathname.includes(filename));
+    fileNames.forEach((filename) => {
+      const blob = blobs.find((b) => b.pathname.includes(filename));
       assetMap[filename] = blob ? blob.url : null;
     });
 
     res.status(200).json({
       success: true,
       assets: assetMap,
-      allBlobs: blobs.map(b => ({
+      allBlobs: blobs.map((b) => ({
         url: b.url,
         pathname: b.pathname,
         size: b.size,
         uploadedAt: b.uploadedAt,
       })),
     });
-
   } catch (error) {
     console.error("❌ List error:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: "Dosyalar listelenemedi: " + error.message 
+    res.status(500).json({
+      success: false,
+      error: "Dosyalar listelenemedi: " + error.message,
     });
   }
 }

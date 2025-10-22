@@ -1,4 +1,4 @@
-import { del, list } from '@vercel/blob';
+import { del, list } from "@vercel/blob";
 
 export default async function handler(req, res) {
   // CORS
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (req.method === "DELETE") {
+  if (req.method === "DELETE" || req.method === "POST") {
     try {
       const { filename } = req.body;
 
@@ -28,11 +28,11 @@ export default async function handler(req, res) {
       }
 
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-    
+
       if (!token) {
-        return res.status(500).json({ 
-          success: false, 
-          error: "BLOB_READ_WRITE_TOKEN yapılandırılmamış" 
+        return res.status(500).json({
+          success: false,
+          error: "BLOB_READ_WRITE_TOKEN yapılandırılmamış",
         });
       }
 
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
         "photo3.png",
         "intro.mp4",
         "video.mp4",
-        "nazin-kitabi.pdf"
+        "nazin-kitabi.pdf",
       ];
 
       if (!allowedFiles.includes(filename)) {
@@ -55,10 +55,10 @@ export default async function handler(req, res) {
       }
 
       console.log("🔍 Vercel Blob'da dosya aranıyor:", filename);
-      
+
       // Önce dosyayı bul
       const { blobs } = await list({ token });
-      const blob = blobs.find(b => b.pathname.includes(filename));
+      const blob = blobs.find((b) => b.pathname.includes(filename));
 
       if (!blob) {
         return res.status(404).json({
@@ -78,7 +78,6 @@ export default async function handler(req, res) {
         success: true,
         message: `${filename} başarıyla silindi`,
       });
-      
     } catch (error) {
       console.error("❌ Silme hatası:", error);
       res.status(500).json({

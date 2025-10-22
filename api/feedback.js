@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       // Tüm feedback'leri oku
       const feedbacks = await collection.find({}).sort({ createdAt: -1 }).toArray();
-      return res.status(200).json(feedbacks);
+      return res.status(200).json({ feedback: feedbacks });
     }
 
     if (req.method === 'POST') {
